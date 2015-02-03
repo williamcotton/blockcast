@@ -1,6 +1,6 @@
 {
   "name": "blockcast",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "A decentralized messaging application protocol for publishing to the Bitcoin blockchain.",
   "main": "./src/index.js",
   "scripts": {
@@ -31,6 +31,6 @@
     "helloblock-js": "^0.2.5"
   },
   "dependencies": {
-    "bitcoinjs-lib": "^1.2.0"
+    "bitcoinjs-lib": "^1.4.3"
   }
 }

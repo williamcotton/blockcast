@@ -41,15 +41,28 @@ var createSignedTransaction = function(options, callback) {
   var unspentValue = 0;
   for (var i = unspentOutputs.length - 1; i >= 0; i--) {
     var unspentOutput = unspentOutputs[i];
+    if (unspentOutput.value === 0) {
+      continue;
+    }
     unspentValue += unspentOutput.value;
     tx.addInput(unspentOutput.txHash, unspentOutput.index);
     if (unspentValue - fee - tipAmount >= 0) {
       break;
     }
   };
-  tx.addOutput(payloadScript, 0);
+  tx.addOutput(payloadScript, 0); 
   tx.addOutput(tipDestinationAddress, tipAmount);
-  tx.addOutput(address, unspentValue - fee - tipAmount);
+
+  if (unspentValue - fee - tipAmount > 0) {
+    tx.addOutput(address, unspentValue - fee - tipAmount);
+  }
+
+  // AssertionError: Number of addresses must match number of transaction inputs
+  // this seems to be a bug in bitcoinjs-lib
+  // it is checking for assert.equal(tx.ins.length, addresses.length, 'Number of addresses must match number of transaction inputs')
+  // but that doesn't make sense because the number of ins doesn't have anything to do with the number of addresses...
+  // the solution is to upgrade bitcoinjs-min.js
+
   signTransaction(tx, function(err, signedTx) {
     var signedTxBuilt = signedTx.build();
     var signedTxHex = signedTxBuilt.toHex();
