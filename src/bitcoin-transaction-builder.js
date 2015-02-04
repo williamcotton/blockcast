@@ -179,5 +179,6 @@ var createSignedTransactionsWithData = function(options, callback) {
 module.exports = {
   createSignedTransactionsWithData: createSignedTransactionsWithData,
   getPayloadsFromTransactions: getPayloadsFromTransactions,
+  dataPayload: dataPayload,
   getData: getData
 };

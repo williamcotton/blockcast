@@ -179,4 +179,22 @@ describe("blockcast", function() {
 
   });
 
+
+  it("should get the payloads length", function(done) {    
+    var data = loremIpsum;
+    blockcast.payloadsLength({data: data}, function(err, payloadsLength) {
+      expect(payloadsLength).toBe(12);
+      done();
+    });
+  });
+
+  it("should warn when the payloads length is too big", function(done) {    
+    var data = randomString(1200);
+    blockcast.payloadsLength({data: data}, function(err, payloadsLength) {
+      expect(err).toBe('data payload > 607');
+      expect(payloadsLength).toBe(false);
+      done();
+    });
+  });
+
 });

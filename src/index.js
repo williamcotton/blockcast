@@ -60,6 +60,16 @@ var post = function(options, callback) {
   });
 };
 
+var payloadsLength = function(options, callback) {
+  bitcoinTransactionBuilder.dataPayload.create({data: options.data, id: 0}, function(err, payloads) {
+    if (err) {
+      callback(err, payloads);
+      return;
+    }
+    callback(false, payloads.length);
+  });
+};
+
 var scanSingle = function(options, callback) {
   var txHash = options.txHash;
   var getTransaction = options.getTransaction;
@@ -235,5 +245,6 @@ module.exports = {
   scanSingle: scanSingle,
   parse: dataPayload.getInfo,
   tip: tip,
+  payloadsLength: payloadsLength,
   parseTip: parseTip
 };
