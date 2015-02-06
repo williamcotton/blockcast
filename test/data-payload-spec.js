@@ -35,7 +35,7 @@ describe("data payload", function() {
     dataPayload.create({data: data, id: 3}, function(err, payloads) {
       expect(payloads.length).toBe(1);
       expect(payloads[0].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -45,7 +45,7 @@ describe("data payload", function() {
     dataPayload.create({data: data, id: 3}, function(err, payloads) {
       expect(payloads.length).toBe(1);
       expect(payloads[0].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -56,7 +56,7 @@ describe("data payload", function() {
       expect(payloads.length).toBe(2);
       expect(payloads[0].length).toBe(40);
       expect(payloads[1].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -67,7 +67,7 @@ describe("data payload", function() {
       expect(payloads.length).toBe(2);
       expect(payloads[0].length).toBe(40);
       expect(payloads[1].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -79,7 +79,7 @@ describe("data payload", function() {
       expect(payloads[0].length).toBe(40);
       expect(payloads[1].length).toBe(40);
       expect(payloads[2].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -91,7 +91,7 @@ describe("data payload", function() {
       expect(payloads[0].length).toBe(40);
       expect(payloads[1].length).toBe(40);
       expect(payloads[2].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -105,7 +105,22 @@ describe("data payload", function() {
         expect(payload.length).toBe(40);
       };
       expect(payloads[14].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+      done();
+    });
+  });
+
+  it("should create a data payload for some random data of 800 bytes", function(done) {
+    var data = randomString(750);
+    dataPayload.create({data: data, id: 3}, function(err, payloads) {
+      console.log(payloads.length);
+      expect(payloads.length).toBe(16);
+      for (var i = 0; i < payloads.length - 1; i++) {
+        var payload = payloads[i];
+        expect(payload.length).toBe(40);
+      };
+      expect(payloads[15].length).toBeLessThan(41);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -119,7 +134,7 @@ describe("data payload", function() {
         expect(payload.length).toBe(40);
       };
       expect(payloads[11].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });
@@ -128,7 +143,7 @@ describe("data payload", function() {
     var data = randomJsonObject(865);
     dataPayload.create({data: data, id: 3}, function(err, payloads) {
       expect(payloads.length).toBe(14);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length);
+      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
       done();
     });
   });

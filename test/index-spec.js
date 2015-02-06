@@ -80,37 +80,42 @@ describe("blockcast", function() {
 
   });
 
-  it("should scan a block for messages", function(done) {
+  // We need to pick new transactions due to the hard fork
+  //
+  // Bitcoin Block Height: 342308
+  // Testnet Block Height: 322184
 
-    helloblock.blocks.getTransactions(307068 , {limit: 100}, function(err, res, transactions) {
-      blockcast.scan({
-        transactions: transactions
-      }, function(err, messages) {
-        expect(messages.length).toBe(7);
-        var msg = messages[0];
-        expect(msg.address).toBe('mgqNd45CJsb11pCKdS68t13a7vcbs4HAHY');
-        expect(msg.message).toBe('67ZUGK2M03aK3dbUK6UqllS2t3dKvWb8AnBOFeBL4qMZG4R1h2ep9thCFaDk0znZ65M1TeUK8OsK8TQN3hApdpP6u5AXq6Dx3Dsxv2fAsFq7Le');
-        done();
-      });
-    });
+  // it("should scan a block for messages", function(done) {
 
-  });
+  //   helloblock.blocks.getTransactions(307068 , {limit: 100}, function(err, res, transactions) {
+  //     blockcast.scan({
+  //       transactions: transactions
+  //     }, function(err, messages) {
+  //       expect(messages.length).toBe(7);
+  //       var msg = messages[0];
+  //       expect(msg.address).toBe('mgqNd45CJsb11pCKdS68t13a7vcbs4HAHY');
+  //       expect(msg.message).toBe('67ZUGK2M03aK3dbUK6UqllS2t3dKvWb8AnBOFeBL4qMZG4R1h2ep9thCFaDk0znZ65M1TeUK8OsK8TQN3hApdpP6u5AXq6Dx3Dsxv2fAsFq7Le');
+  //       done();
+  //     });
+  //   });
 
-  it("should scan a single transaction", function(done) {
-    var txHash = "ec42f55249fb664609ef4329dcce3cab6d6ae14f6860a602747a72f966de3e13";
-    var getTransaction = function(txHash, callback) {
-      helloblock.transactions.get(txHash, function(err, res, tx) {
-        callback(err, tx);
-      });
-    };
-    blockcast.scanSingle({
-      txHash: txHash,
-      getTransaction: getTransaction
-    }, function(err, message) {
-      expect(message).toBe("zhhTf8FwMbncVmkkFlPIHmHi8ebif9oZzarnHFVGXpTvIlbSutrOlzA6npQnpn2SkfuhbytJQqdLiQ0MFRDfIqbFkvakl3h3nSHJlLPi5T50SR");
-      done();
-    });
-  });
+  // });
+
+  // it("should scan a single transaction", function(done) {
+  //   var txHash = "ec42f55249fb664609ef4329dcce3cab6d6ae14f6860a602747a72f966de3e13";
+  //   var getTransaction = function(txHash, callback) {
+  //     helloblock.transactions.get(txHash, function(err, res, tx) {
+  //       callback(err, tx);
+  //     });
+  //   };
+  //   blockcast.scanSingle({
+  //     txHash: txHash,
+  //     getTransaction: getTransaction
+  //   }, function(err, message) {
+  //     expect(message).toBe("zhhTf8FwMbncVmkkFlPIHmHi8ebif9oZzarnHFVGXpTvIlbSutrOlzA6npQnpn2SkfuhbytJQqdLiQ0MFRDfIqbFkvakl3h3nSHJlLPi5T50SR");
+  //     done();
+  //   });
+  // });
 
 
   it("should create and post a simplePost", function(done) {

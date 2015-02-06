@@ -10,7 +10,7 @@ var encodeStart = function(options) {
   var version = VERSION;
   var index = 0;
   var id = options.id;
-  var length = options.length;
+  var length = options.length - 1;
   if (id > 15) {
     throw new Error("id > 15");
   }
@@ -36,7 +36,7 @@ var decodeStart = function(startHeader) {
   assert.equal(version, VERSION);
   assert.equal(index, 0);
   var id = nibbles2[0];
-  var length = nibbles2[1];
+  var length = nibbles2[1] + 1;
   return {
     id: id,
     length: length,
