@@ -8,7 +8,7 @@ describe("header", function() {
       length: 4
     };
     var startHeader = header.encodeStart(options);
-    expect(startHeader.toString("hex")).toBe("1f0004");
+    expect(startHeader.toString("hex")).toBe("1f0003");
   });
 
   it("should not encode a start header with an id of greater than 15", function() {
@@ -25,10 +25,10 @@ describe("header", function() {
     expect(startHeader).not.toBeDefined();
   });
 
-  it("should not encode a start header with a length of greater than 15", function() {
+  it("should not encode a start header with a length of greater than 16", function() {
     var options = {
       id: 0,
-      length: 16
+      length: 17
     };
     try {
       var startHeader = header.encodeStart(options);
@@ -43,7 +43,7 @@ describe("header", function() {
     var startHeader = new Buffer("1f0004", "hex");
     var options = header.decodeStart(startHeader);
     expect(options.id).toBe(0);
-    expect(options.length).toBe(4);
+    expect(options.length).toBe(5);
   });
 
   it("should encode and decode a random start header", function() {
