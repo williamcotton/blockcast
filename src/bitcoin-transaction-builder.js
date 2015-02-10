@@ -10,6 +10,14 @@ var loadAndSignTransaction = function(options, callback) {
   var fee = options.fee;
   var unspentOutputs = options.unspentOutputs;
   var unspentValue = 0;
+  var compare = function(a,b) {
+    if (a.value < b.value)
+      return -1;
+    if (a.value > b.value)
+      return 1;
+    return 0;
+  };
+  unspentOutputs.sort(compare);
   for (var i = unspentOutputs.length - 1; i >= 0; i--) {
     var unspentOutput = unspentOutputs[i];
     if (unspentOutput.value === 0) {
@@ -119,6 +127,14 @@ var createSignedTransactionsWithData = function(options, callback) {
     var totalCost = payloadsLength * fee;
     var existingUnspents = [];
     var unspentValue = 0;
+    var compare = function(a,b) {
+      if (a.value < b.value)
+        return -1;
+      if (a.value > b.value)
+        return 1;
+      return 0;
+    };
+    unspentOutputs.sort(compare);
     for (var i = unspentOutputs.length - 1; i >= 0; i--) {
       var unspentOutput = unspentOutputs[i];
       unspentValue += unspentOutput.value;

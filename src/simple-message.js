@@ -35,6 +35,14 @@ var createSignedTransactionWithData = function(options, callback) {
   var payloadScript = Bitcoin.Script.fromChunks([Bitcoin.opcodes.OP_RETURN, data]);
   var tx = new Bitcoin.TransactionBuilder();
   var unspentOutputs = options.unspentOutputs;
+  var compare = function(a,b) {
+    if (a.value < b.value)
+      return -1;
+    if (a.value > b.value)
+      return 1;
+    return 0;
+  };
+  unspentOutputs.sort(compare);
   var unspentValue = 0;
   for (var i = unspentOutputs.length - 1; i >= 0; i--) {
     var unspentOutput = unspentOutputs[i];
