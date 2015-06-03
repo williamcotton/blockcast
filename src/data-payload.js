@@ -113,7 +113,12 @@ var decode = function(payloads, callback) {
     compressedBuffer = Buffer.concat([compressedBuffer, dataPayload]);
   };
   decompress(compressedBuffer, function(err, data) {
-    callback(false, data.toString());
+    if (!data || !data.toString) {
+      callback(true, "");
+    }
+    else {
+      callback(false, data.toString());
+    }
   });
 };
 
