@@ -79,6 +79,9 @@ var scanSingle = function(options, callback) {
   var onTransaction = function(err, tx) {
     allTransactions.push(tx);
     var payload = bitcoinTransactionBuilder.getPayloadsFromTransactions([tx])[0];
+    if (!payload || !payload.data) {
+      return callback("no payload", false);
+    }
     payloadDatum.push(payload.data);
     var nextTxHash = tx.outputs[1].nextTxHash;
     if (payload.length) {
