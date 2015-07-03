@@ -1,89 +1,62 @@
 blockcast
 ===
 
-A decentralized messaging application protocol for micropublishing to the Bitcoin blockchain.
+A multi-transaction protocol for storing data in the Bitcoin blockchain.
 
-Publishing a document
+Posting a message
 ---
 
-First, we'll need a Bitcoin private key and matching public address. Our public address can be thought of as our user ID. In order to post we'll need to make sure that our address has some Bitcoin.
-
-In our examples we're going to use the helloblock test faucet to get our private key, public address and unspent outputs.
+In our examples we're going to use ```bitcoinjs-lib``` to create our wallet.
 
 ```javascript
-var helloblock = require("helloblock-js")({
-  network: 'testnet'
+var bitcoin = require("bitcoinjs-lib");
+
+var seed = bitcoin.crypto.sha256("test");
+var wallet = new bitcoin.Wallet(seed, bitcoin.networks.testnet);
+var address = wallet.generateAddress();
+
+var signRawTransaction = function(txHex, cb) {
+  var tx = bitcoin.Transaction.fromHex(txHex);
+  var signedTx = wallet.signWith(tx, [address]);
+  var txid = signedTx.getId();
+  var signedTxHex = signedTx.toHex();
+  cb(false, signedTxHex, txid);
+};
+
+var commonWallet = {
+  signRawTransaction: signRawTransaction,
+  address: address
+}
+```
+
+We'll need to provide an instance of a commonBlockchain which will provide functions for signing a transaction, propagating a trasnaction, and looking up a transaction by ```txid```.
+
+In this example we're using the in memory version that is provided by ```abstract-common-blockchain```.
+
+
+```javascript
+var commonBlockchain = require("abstract-common-blockchain")({
+  type: "local"
 });
 
-helloblock.faucet.get(1, function(err, res, body) {
+// var ChainAPI = require("chain-unofficial");
 
-  var privateKeyWIF = body.privateKeyWIF;
-  var address = body.address;
-  var unspentOutputs = body.unspents;
-  
-  // ...
-  
-});
-```
-
-We'll need to provide a few of your own functions.
-
-Signing a transaction:
-```javascript
-var signFromPrivateKeyWIF = function(privateKeyWIF) {
-  return function(tx, callback) {
-    var key = Bitcoin.ECKey.fromWIF(privateKeyWIF);
-    tx.sign(0, key); 
-    callback(false, tx);
-  }
-};
-var signTransaction = signFromPrivateKeyWIF(privateKeyWIF);
-```
-
-Propagating a transaction:
-```javascript
-var propagateTransaction = function(tx, callback) {
-  helloblock.transactions.propagate(tx, function(err, res, body) {
-    callback(err, res);
-  });
-};
-```
-
-Looking up and parsing a transaction:
-```javascript
-var getTransaction = function(txHash, callback) {
-  helloblock.transactions.get(txHash, function(err, res, tx) {
-    callback(err, tx);
-  });
-};
+// var commonBlockchain = ChainAPI({
+//   network: "testnet", 
+//   key: process.env.CHAIN_API_KEY_ID, 
+//   secret: process.env.CHAIN_API_KEY_SECRET
+// });
 ```
 
 And finally we're ready to post.
 
 ```javascript
 blockcast.post({
-  data: "Hello, world!",
-  address: address,
-  unspentOutputs: unspentOutputs,
-  propagateTransaction: propagateTransaction,
-  signTransaction: signTransaction
+  data: "Hello, world! I'm posting a message that is compressed and spread out across a number of bitcoin transactions!",
+  commonWallet: commonWallet,
+  commonBlockchain: commonBlockchain
 }, function(error, response) {
   console.log(response);
-});
-```
-
-Scanning for all documents in a block
----
-
-All we'll need is a list of Bitcoin transactions and we'll get back a list of documents and their authors.
-
-```javascript
-helloblock.blocks.getTransactions(307068 , {limit: 100}, function(err, res, transactions) {
-  blockcast.scan({
-    transactions: transactions
-  }, function(err, documents) {
-    console.log(documents);
-  });
 });
 ```
 
@@ -94,8 +67,8 @@ We can also provide the transaction hash from the first transaction's payload.
 
 ```javascript
 blockcast.scanSingle({
-  txHash: firstTxHash,
-  getTransaction: getTransaction
+  txid: '',
+  commonBlockchain: commonBlockchain
 }, function(err, document) {
   console.log(document);
 });
@@ -105,39 +78,23 @@ blockcast.scanSingle({
 How does it work?
 ---
 
-v0.0
----
-
 Documents are compressed using DEFLATE and then embedded across up to 16 Bitcoin transactions in OP_RETURN outputs along with custom headers allowing for documents no larger than 607 bytes. 
 
-This is enough space to contain a number of document digest formats, URIs and URNs. This allows for cross-platform content addressable systems such as Bittorrent and Venti.
-
-v0.1
----
-
-Documents will be compressed using DEFLATE and then embedded in OP_RETURN outputs for a an unlimited document size.
-However, the protocol enforces a geometric growth in transaction fees. This is intended to incentivize smaller document sizes.
-
-Why build a decentralized messaging application?
----
-
-To create an open platform for building social publishing applications. 
-
-The public key infrastructure and incentives of crypto-currencies allow for users to control their own identities and data.
+This is enough space to contain a number of document digest formats, URIs and URNs. This allows for cross-platform content addressable systems such as BitTorrent and IPFS. Used by [openpublish](https://github.com/blockai/openpublish/)
 
 Why Bitcoin?
 ---
 
-The Bitcoin blockchain is the world's first public equal-access data store. Documents embedded in the Bitcoin blockchain become provably published records signed by recognizable authors.
+The Bitcoin blockchain is the world's first public equal-access data store. Data embedded in the Bitcoin blockchain becomes provably published records signed by recognizable authors.
 
 Other public data stores are unreliable. Bittorrent, Freenet and public-access DHTs cannot guarantee that data will be retrievable.
 
 What about polluting the blockchain?
 ---
 
-We will move this protocol to a Bitcoin sidechain designed specifically for public document publishing as soon as the technology for building sidechains becomes available.
+We will move this protocol to a Bitcoin sidechain designed specifically for public data as soon as the technology for building sidechains becomes available.
 
-In the meantime we are building our own centralized public-access data store that uses BitID for authentication, Bitcoin for payments, and pollutes the Bitcoin blockchain with no other data than a reference URI and a signed hash of the document. The multi-transaction Blockcast protocol will still be useful for storing this metadata as it will be more than 40 bytes.
+In the meantime we've created our own centralized public-access data store call [bitstore](https://github.com/blockai/bitstore-client/) that uses Bitcoin PKI for authentication, Bitcoin for payments, and pollutes the Bitcoin blockchain with no other data than a reference URI and a signed hash of the document. The multi-transaction Blockcast protocol will still be useful for storing this metadata as it will be more than 40 bytes.
 
 Woodsy Owl says "Give a Hoot! Don't Pollute!"
 

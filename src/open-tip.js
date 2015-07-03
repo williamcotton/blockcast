@@ -30,52 +30,56 @@ var createSignedTransaction = function(options, callback) {
   var tipDestinationAddress = options.tipDestinationAddress;
   var tipAmount = options.tipAmount || 10000;
   var data = new Buffer(headerHex + tipTransactionHash, "hex");
-  var signTransaction = options.signTransaction || signFromTransactionHex(options.signTransactionHex) || signFromPrivateKeyWIF(options.privateKeyWIF);
+  var commonWallet = options.commonWallet;
+  var commonBlockchain = options.commonBlockchain;
+  var signTransaction = signFromTransactionHex(commonWallet.signRawTransaction);
   options.signTransaction = signTransaction;
-  var address = options.address;
+  var address = commonWallet.address;
   var fee = options.fee || 1000;
-  var privateKeyWIF = options.privateKeyWIF;
   var payloadScript = Bitcoin.Script.fromChunks([Bitcoin.opcodes.OP_RETURN, data]);
   var tx = new Bitcoin.TransactionBuilder();
-  var unspentOutputs = options.unspentOutputs;
-  var compare = function(a,b) {
-    if (a.value < b.value)
-      return -1;
-    if (a.value > b.value)
-      return 1;
-    return 0;
-  };
-  unspentOutputs.sort(compare);
-  var unspentValue = 0;
-  for (var i = unspentOutputs.length - 1; i >= 0; i--) {
-    var unspentOutput = unspentOutputs[i];
-    if (unspentOutput.value === 0) {
-      continue;
+  commonBlockchain.Addresses.Unspents([address], function(err, addresses_unspents) {
+    var unspentOutputs = addresses_unspents[0];
+    var compare = function(a,b) {
+      if (a.value < b.value)
+        return -1;
+      if (a.value > b.value)
+        return 1;
+      return 0;
+    };
+    unspentOutputs.sort(compare);
+    var unspentValue = 0;
+    for (var i = unspentOutputs.length - 1; i >= 0; i--) {
+      var unspentOutput = unspentOutputs[i];
+      if (unspentOutput.value === 0) {
+        continue;
+      }
+      unspentValue += unspentOutput.value;
+      tx.addInput(unspentOutput.txid, unspentOutput.vout);
+      if (unspentValue - fee - tipAmount >= 0) {
+        break;
+      }
+    };
+    tx.addOutput(payloadScript, 0);
+    tx.addOutput(tipDestinationAddress, tipAmount);
+
+    if (unspentValue - fee - tipAmount > 0) {
+      tx.addOutput(address, unspentValue - fee - tipAmount);
     }
-    unspentValue += unspentOutput.value;
-    tx.addInput(unspentOutput.txHash, unspentOutput.index);
-    if (unspentValue - fee - tipAmount >= 0) {
-      break;
-    }
-  };
-  tx.addOutput(payloadScript, 0);
-  tx.addOutput(tipDestinationAddress, tipAmount);
 
-  if (unspentValue - fee - tipAmount > 0) {
-    tx.addOutput(address, unspentValue - fee - tipAmount);
-  }
+    // AssertionError: Number of addresses must match number of transaction inputs
+    // this seems to be a bug in bitcoinjs-lib
+    // it is checking for assert.equal(tx.ins.length, addresses.length, 'Number of addresses must match number of transaction inputs')
+    // but that doesn't make sense because the number of ins doesn't have anything to do with the number of addresses...
+    // the solution is to upgrade bitcoinjs-min.js
 
-  // AssertionError: Number of addresses must match number of transaction inputs
-  // this seems to be a bug in bitcoinjs-lib
-  // it is checking for assert.equal(tx.ins.length, addresses.length, 'Number of addresses must match number of transaction inputs')
-  // but that doesn't make sense because the number of ins doesn't have anything to do with the number of addresses...
-  // the solution is to upgrade bitcoinjs-min.js
+    signTransaction(tx, function(err, signedTx) {
+      var signedTxBuilt = signedTx.build();
+      var signedTxHex = signedTxBuilt.toHex();
+      var txHash = signedTxBuilt.getId();
+      callback(false, signedTxHex, txHash);
+    });
 
-  signTransaction(tx, function(err, signedTx) {
-    var signedTxBuilt = signedTx.build();
-    var signedTxHex = signedTxBuilt.toHex();
-    var txHash = signedTxBuilt.getId();
-    callback(false, signedTxHex, txHash);
   });
 };
 
@@ -86,15 +90,15 @@ var getTips = function(options, callback) {
     var tip = {};
     var sources = [];
     var value;
-    tx.inputs.forEach(function(input) {
-      var sourceAddress = input.address;
+    tx.vin.forEach(function(input) {
+      var sourceAddress = input.addresses[0];
       if (sourceAddress) {
         sources.push(sourceAddress);
       }
     });
-    tx.outputs.forEach(function(output) {
-      if (output.type == 'nulldata') {
-        var scriptPubKey = output.scriptPubKey;
+    tx.vout.forEach(function(output) {
+      if (output.scriptPubKey.type == 'nulldata') {
+        var scriptPubKey = output.scriptPubKey.hex;
         if (scriptPubKey.slice(0,2) == "6a") {
           var data = scriptPubKey.slice(4, 84);
           if (data.slice(0,6) == headerHex && data.length == 70) {
@@ -102,8 +106,8 @@ var getTips = function(options, callback) {
           }
         }
       }
-      else if (output.type == 'pubkeyhash') {
-        var destinationAddress = output.address;
+      else if (output.scriptPubKey.type == 'pubkeyhash') {
+        var destinationAddress = output.scriptPubKey.addresses[0];
         if (!value || output.value < value) {
           value = output.value;
         }

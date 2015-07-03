@@ -24,7 +24,7 @@ var loadAndSignTransaction = function(options, callback) {
       continue;
     }
     unspentValue += unspentOutput.value;
-    tx.addInput(unspentOutput.txHash, unspentOutput.index);
+    tx.addInput(unspentOutput.txid, unspentOutput.vout);
   };
   tx.addOutput(address, unspentValue - fee);
   options.signTransaction(tx, function(err, signedTx) {
@@ -43,14 +43,18 @@ var getPayloadsFromTransactions = function(transactions) {
   var payloads = [];
   for (var i = 0; i < transactions.length; i++) {
     var transaction = transactions[i];
-    var outputs = transaction.outputs;
-    var address = transaction.inputs[0].address;
-    for (var j = outputs.length - 1; j >= 0; j--) {
-      var output = outputs[j];
-      var scriptPubKey = output.scriptPubKey;
+    //console.log(transaction);
+    var vout = transaction.vout;
+    var address = transaction.vin[0] ? transaction.vin[0].addresses[0] : null;
+    //console.log("address", address);
+    for (var j = vout.length - 1; j >= 0; j--) {
+      var output = vout[j];
+      var scriptPubKey = output.scriptPubKey.hex;
+      //console.log("scriptPubKey", scriptPubKey);
       var scriptPubKeyBuffer = new Buffer(scriptPubKey, 'hex');
       if (scriptPubKeyBuffer[0] == 106 && scriptPubKeyBuffer[2] == 31) {
         var payload = scriptPubKeyBuffer.slice(2, scriptPubKeyBuffer.length);
+        //console.log("payload", payload);
         var info = dataPayload.getInfo(payload);
         var data = payload;
         payloads.push({
@@ -78,21 +82,14 @@ var findByIdAndAddress = function(payloads, options) {
 
 var getData = function(options, callback) {
   var transactions = options.transactions;
-  var address = options.address;
+  var commonWallet = options.commonWallet;
+  var address = commonWallet.address;
   var id = options.id;
   var unsortedPayloads = findByIdAndAddress(getPayloadsFromTransactions(transactions), {address: address, id: id});
   var payloads = dataPayload.sort(unsortedPayloads);
   dataPayload.decode(payloads, function(error, decodedData) {
     callback(error, decodedData)
   });
-};
-
-var signFromPrivateKeyWIF = function(privateKeyWIF) {
-  return function(tx, callback) {
-    var key = Bitcoin.ECKey.fromWIF(privateKeyWIF);
-    tx.sign(0, key); 
-    callback(false, tx);
-  }
 };
 
 var signFromTransactionHex = function(signTransactionHex) {
@@ -109,86 +106,90 @@ var signFromTransactionHex = function(signTransactionHex) {
 };
 
 var createSignedTransactionsWithData = function(options, callback) {
-  var signTransaction = options.signTransaction || signFromTransactionHex(options.signTransactionHex) || signFromPrivateKeyWIF(options.privateKeyWIF);
+  var commonWallet = options.commonWallet;
+  var address = commonWallet.address;
+  var commonBlockchain = options.commonBlockchain;
+  var signTransaction = signFromTransactionHex(commonWallet.signRawTransaction);
   options.signTransaction = signTransaction;
   var data = options.data;
-  var unspentOutputs = options.unspentOutputs;
-  var id = options.id;
-  var fee = options.fee || 1000;
-  var address = options.address;
-  var privateKeyWIF = options.privateKeyWIF;
-  dataPayload.create({data: data, id: id}, function(err, payloads) {
+  commonBlockchain.Addresses.Unspents([address], function(err, addresses_unspents) {
+    var unspentOutputs = addresses_unspents[0];
+    var id = options.id;
+    var fee = options.fee || 1000;
+    var address = commonWallet.address;
 
-    var signedTransactions = [];
-    var signedTransactionsCounter = 0;
-    var payloadsLength = payloads.length;
-    var txHash;
+    dataPayload.create({data: data, id: id}, function(err, payloads) {
 
-    var totalCost = payloadsLength * fee;
-    var existingUnspents = [];
-    var unspentValue = 0;
-    var compare = function(a,b) {
-      if (a.value < b.value)
-        return -1;
-      if (a.value > b.value)
-        return 1;
-      return 0;
-    };
-    unspentOutputs.sort(compare);
-    for (var i = unspentOutputs.length - 1; i >= 0; i--) {
-      var unspentOutput = unspentOutputs[i];
-      unspentValue += unspentOutput.value;
-      existingUnspents.push(unspentOutput);
-      if (unspentValue >= totalCost) {
-        break;
-      }
-    };
+      var signedTransactions = [];
+      var signedTransactionsCounter = 0;
+      var payloadsLength = payloads.length;
+      var txid;
 
-    var signedTransactionResponse = function(err, signedTx) {
-      var signedTxBuilt = signedTx.build();
-      var signedTxHex = signedTxBuilt.toHex();
-      var signedTxHash = signedTxBuilt.getId();
-      if (signedTransactionsCounter == 0) {
-        txHash = signedTxHash;
-      }
-      signedTransactions[signedTransactionsCounter] = signedTxHex;
-      signedTransactionsCounter++;
-      if (signedTransactionsCounter == payloadsLength) {
-        callback(false, signedTransactions, txHash);
-      }
-      else {
-        var payload = payloads[signedTransactionsCounter];
-        var tx = createTransactionWithPayload(payload);
-        var value = signedTx.tx.outs[1].value;
-        
-        var index = 1;
+      var totalCost = payloadsLength * fee;
+      var existingUnspents = [];
+      var unspentValue = 0;
+      var compare = function(a,b) {
+        if (a.value < b.value)
+          return -1;
+        if (a.value > b.value)
+          return 1;
+        return 0;
+      };
+      unspentOutputs.sort(compare);
+      for (var i = unspentOutputs.length - 1; i >= 0; i--) {
+        var unspentOutput = unspentOutputs[i];
+        unspentValue += unspentOutput.value;
+        existingUnspents.push(unspentOutput);
+        if (unspentValue >= totalCost) {
+          break;
+        }
+      };
 
-        var unspent = {
-          txHash: signedTxHash,
-          index: index,
-          value: value
-        };
+      var signedTransactionResponse = function(err, signedTx) {
+        var signedTxBuilt = signedTx.build();
+        var signedTxHex = signedTxBuilt.toHex();
+        var signedTxid = signedTxBuilt.getId();
+        if (signedTransactionsCounter == 0) {
+          txid = signedTxid;
+        }
+        signedTransactions[signedTransactionsCounter] = signedTxHex;
+        signedTransactionsCounter++;
+        if (signedTransactionsCounter == payloadsLength) {
+          callback(false, signedTransactions, txid);
+        }
+        else {
+          var payload = payloads[signedTransactionsCounter];
+          var tx = createTransactionWithPayload(payload);
+          var value = signedTx.tx.outs[1].value;
+          
+          var vout = 1;
 
-        loadAndSignTransaction({
-          fee: fee,
-          tx: tx,
-          unspentOutputs: [unspent],
-          address: address,
-          signTransaction: options.signTransaction
-        }, signedTransactionResponse);
-      }
-    };
+          var unspent = {
+            txid: signedTxid,
+            vout: vout,
+            value: value
+          };
 
-    var tx = createTransactionWithPayload(payloads[0]);
+          loadAndSignTransaction({
+            fee: fee,
+            tx: tx,
+            unspentOutputs: [unspent],
+            address: address,
+            signTransaction: options.signTransaction
+          }, signedTransactionResponse);
+        }
+      };
 
-    loadAndSignTransaction({
-      fee: fee,
-      tx: tx,
-      unspentOutputs: existingUnspents,
-      address: address,
-      signTransaction: options.signTransaction
-    }, signedTransactionResponse);
+      var tx = createTransactionWithPayload(payloads[0]);
 
+      loadAndSignTransaction({
+        fee: fee,
+        tx: tx,
+        unspentOutputs: existingUnspents,
+        address: address,
+        signTransaction: options.signTransaction
+      }, signedTransactionResponse);
+    });
   });
 };
 

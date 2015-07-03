@@ -1,9 +1,41 @@
 jasmine.getEnv().defaultTimeoutInterval = 50000;
 
 var bitcoinTransactionBuilder = require("../src/bitcoin-transaction-builder");
-var helloblock = require("helloblock-js")({
-  network: 'testnet'
+
+var bitcoin = require("bitcoinjs-lib");
+
+var async = require("async");
+
+var commonBlockchain = require("abstract-common-blockchain")({
+  type: "local"
 });
+
+// uncomment this to use chain for testnet integration tests
+
+// var ChainAPI = require("chain-unofficial");
+
+// var commonBlockchain = ChainAPI({
+//   network: "testnet", 
+//   key: process.env.CHAIN_API_KEY_ID, 
+//   secret: process.env.CHAIN_API_KEY_SECRET
+// });
+
+var seed = bitcoin.crypto.sha256("test");
+var wallet = new bitcoin.Wallet(seed, bitcoin.networks.testnet);
+var address = wallet.generateAddress();
+
+var signRawTransaction = function(txHex, cb) {
+  var tx = bitcoin.Transaction.fromHex(txHex);
+  var signedTx = wallet.signWith(tx, [address]);
+  var txid = signedTx.getId();
+  var signedTxHex = signedTx.toHex();
+  cb(false, signedTxHex, txid);
+};
+
+var commonWallet = {
+  signRawTransaction: signRawTransaction,
+  address: address
+}
 
 var loremIpsum = "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?";
 
@@ -30,163 +62,155 @@ describe("bitcoin transaction builder", function() {
 
   it("should create the transaction for a random string of 30 bytes", function(done) {
     var data = randomString(30);
-    helloblock.faucet.get(1, function(err, res, body) {
-      if (err) {
-        return done(err);
-      }
-      var privateKeyWIF = body.privateKeyWIF;
-      var address = body.address;
-      var unspentOutputs = body.unspents;
-      var id = parseInt(Math.random()*16);
-      bitcoinTransactionBuilder.createSignedTransactionsWithData({
-        data: data, 
-        id: id, 
-        address: address, 
-        unspentOutputs: unspentOutputs, 
-        privateKeyWIF: privateKeyWIF 
-      }, function(err, signedTransactions) {
-        expect(signedTransactions.length).toBe(1);
-        var txHex = signedTransactions[0];
-        helloblock.transactions.propagate(txHex, function(err, res) {
-          console.log(res.status, "1/1");
-          if (err) {
-            return done(err);
-          }
-          helloblock.addresses.getTransactions(address, function(err, res, transactions) {
-            bitcoinTransactionBuilder.getData({address: address, transactions:transactions, id:id}, function(error, decodedData) {
+    var id = parseInt(Math.random()*16);
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      data: data, 
+      id: id, 
+      commonWallet: commonWallet,
+      commonBlockchain: commonBlockchain
+    }, function(err, signedTransactions) {
+      expect(signedTransactions.length).toBe(1);
+      var txHex = signedTransactions[0];
+      commonBlockchain.Transactions.Propagate(txHex, function(err, res) {
+        console.log(res.status, "1/1");
+        if (err) {
+          return done(err);
+        }
+        var txids = [res.txid];
+        setTimeout(function() {
+          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+            //console.log(transactions);
+            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
               expect(data).toBe(decodedData);
               done();
             });
           });
-        });
+        }, 1500);
       });
     });
   });
 
   it("should create the transaction for a random string of 70 bytes", function(done) {
     var data = randomString(70);
-    helloblock.faucet.get(1, function(err, res, body) {
-      if (err) {
-        return done(err);
-      }
-      var privateKeyWIF = body.privateKeyWIF;
-      var address = body.address;
-      var unspentOutputs = body.unspents;
-      var id = parseInt(Math.random()*16);
-      bitcoinTransactionBuilder.createSignedTransactionsWithData({
-        data: data, 
-        id: id, 
-        address: address, 
-        unspentOutputs: unspentOutputs, 
-        privateKeyWIF: privateKeyWIF 
-      }, function(err, signedTransactions) {
-        expect(signedTransactions.length).toBe(2);
-        var propagateCounter = 0;
-        var propagateResponse = function(err, res, body) {
-          console.log(res.status, propagateCounter + 1 + "/" + signedTransactions.length);
-          if (err) {
-            return done(err);
-          }
-          propagateCounter++;
-          if (propagateCounter == signedTransactions.length) {
-            helloblock.addresses.getTransactions(address, function(err, res, transactions) {
-              bitcoinTransactionBuilder.getData({address: address, transactions:transactions, id:id}, function(error, decodedData) {
+    var id = parseInt(Math.random()*16);
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      data: data, 
+      id: id, 
+      commonWallet: commonWallet,
+      commonBlockchain: commonBlockchain
+    }, function(err, signedTransactions) {
+      expect(signedTransactions.length).toBe(2);
+      var propagateCounter = 0;
+      var txids = [];
+      var propagateResponse = function(err, res) {
+        //console.log(err, res);
+        console.log(propagateCounter + 1 + "/" + signedTransactions.length);
+        if (err) {
+          return done(err);
+        }
+        txids.push(res.txid);
+        propagateCounter++;
+        if (propagateCounter == signedTransactions.length) {
+          setTimeout(function() {
+            commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+              bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
                 expect(data).toBe(decodedData);
                 done();
               });
             });
-          }
+          }, 1500);
         }
-        for (var i = 0; i < signedTransactions.length; i++) {
-          var txHex = signedTransactions[i];
-          helloblock.transactions.propagate(txHex, propagateResponse);
-        };
-      });
+      }
+
+      commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
+      // delay the second one
+      setTimeout(function() {
+        commonBlockchain.Transactions.Propagate(signedTransactions[1], propagateResponse);
+      }, 1500);
+
     });
   });
 
   it("should create the transaction for a random string of 175 bytes", function(done) {
     var data = randomString(175);
-    helloblock.faucet.get(1, function(err, res, body) {
-      if (err) {
-        return done(err);
-      }
-      var privateKeyWIF = body.privateKeyWIF;
-      var address = body.address;
-      var unspentOutputs = body.unspents;
-      var id = parseInt(Math.random()*16);
-      bitcoinTransactionBuilder.createSignedTransactionsWithData({
-        data: data, 
-        id: id, 
-        address: address, 
-        unspentOutputs: unspentOutputs, 
-        privateKeyWIF: privateKeyWIF 
-      }, function(err, signedTransactions) {
-        expect(signedTransactions.length).toBe(5);
-        var propagateCounter = 0;
-        var propagateResponse = function(err, res, body) {
-          console.log(res.status, propagateCounter + 1 + "/" + signedTransactions.length);
-          if (err) {
-            return done(err);
-          }
-          propagateCounter++;
-          if (propagateCounter == signedTransactions.length) {
-            helloblock.addresses.getTransactions(address, function(err, res, transactions) {
-              bitcoinTransactionBuilder.getData({address: address, transactions:transactions, id:id}, function(error, decodedData) {
-                expect(data).toBe(decodedData);
-                done();
-              });
-            });
-          }
-          else {
-            helloblock.transactions.propagate(signedTransactions[propagateCounter], propagateResponse);
-          }
+    var id = parseInt(Math.random()*16);
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      data: data, 
+      id: id, 
+      commonWallet: commonWallet,
+      commonBlockchain: commonBlockchain
+    }, function(err, signedTransactions) {
+      expect(signedTransactions.length).toBe(5);
+      var propagateCounter = 0;
+      var txids = [];
+      var propagateResponse = function(err, res, body) {
+        //console.log(err, res);
+        console.log(propagateCounter + 1 + "/" + signedTransactions.length);
+        if (err) {
+          return done(err);
         }
-        helloblock.transactions.propagate(signedTransactions[0], propagateResponse);
-      });
+        txids.push(res.txid);
+        propagateCounter++;
+        if (propagateCounter == signedTransactions.length) {
+          setTimeout(function() {
+              //console.log(txids);
+              commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+                //console.log("ttt", transactions);
+                bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
+                  expect(data).toBe(decodedData);
+                  done();
+                });
+              });
+
+          }, 3500);
+        }
+        else {
+          commonBlockchain.Transactions.Propagate(signedTransactions[propagateCounter], propagateResponse);
+        }
+      }
+      commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
     });
   });
 
   it("should create the transaction for full latin paragraph of 865 bytes", function(done) {
     var data = loremIpsum.slice(0, 865);
-    helloblock.faucet.get(1, function(err, res, body) {
-      if (err) {
-        return done(err);
-      }
-      var privateKeyWIF = body.privateKeyWIF;
-      var address = body.address;
-      var unspentOutputs = body.unspents;
-      var id = parseInt(Math.random()*16);
-      bitcoinTransactionBuilder.createSignedTransactionsWithData({
-        data: data, 
-        id: id, 
-        address: address, 
-        unspentOutputs: unspentOutputs, 
-        privateKeyWIF: privateKeyWIF 
-      }, function(err, signedTransactions) {
-        expect(signedTransactions.length).toBe(12);
-        var propagateCounter = 0;
-        var propagateResponse = function(err, res, body) {
-          console.log(res.status, propagateCounter + 1 + "/" + signedTransactions.length);
-          if (err) {
-            return done(err);
-          }
-          propagateCounter++;
-          if (propagateCounter == signedTransactions.length) {
-            helloblock.addresses.getTransactions(address, {limit: 20}, function(err, res, transactions) {
-              bitcoinTransactionBuilder.getData({address: address, transactions:transactions, id:id}, function(error, decodedData) {
-                expect(data).toBe(decodedData);
-                done();
-              });
-            });
-          }
-          else {
-            helloblock.transactions.propagate(signedTransactions[propagateCounter], propagateResponse);
-          }
+    var id = parseInt(Math.random()*16);
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      data: data, 
+      id: id, 
+      commonWallet: commonWallet,
+      commonBlockchain: commonBlockchain
+    }, function(err, signedTransactions) {
+      expect(signedTransactions.length).toBe(12);
+      var propagateCounter = 0;
+      var txids = [];
+      var propagateResponse = function(err, res) {
+        //console.log(err, res);
+        console.log(propagateCounter + 1 + "/" + signedTransactions.length);
+        if (err) {
+          return done(err);
         }
-        helloblock.transactions.propagate(signedTransactions[0], propagateResponse);
-      });
-    });
+        txids.push(res.txid);
+        propagateCounter++;
+        if (propagateCounter == signedTransactions.length) {
+          setTimeout(function() {
+
+              commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+                //console.log("ttt", transactions);
+                bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
+                  expect(data).toBe(decodedData);
+                  done();
+                });
+              });
+            
+          }, 6500);
+        }
+        else {
+          commonBlockchain.Transactions.Propagate(signedTransactions[propagateCounter], propagateResponse);
+        }
+      }
+      commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
+    });  
   });
 
 });
