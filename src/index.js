@@ -90,7 +90,6 @@ var scanSingle = function(options, callback) {
       return;
     }
     else {
-      getTransaction(spentTxid, onTransaction);
       commonBlockchain.Transactions.Get([spentTxid], onTransaction);
     }
   };
