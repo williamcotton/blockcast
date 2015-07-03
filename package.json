@@ -1,7 +1,7 @@
 {
   "name": "blockcast",
   "version": "1.0.1",
-  "description": "A decentralized messaging application protocol for publishing to the Bitcoin blockchain.",
+  "description": "A multi-transaction protocol for storing data in the Bitcoin blockchain.",
   "main": "./src/index.js",
   "scripts": {
     "test": "source .env && ./node_modules/.bin/jasmine-node test/ --forceexit --verbose --captureExceptions",
