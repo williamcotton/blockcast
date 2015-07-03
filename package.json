@@ -1,10 +1,10 @@
 {
   "name": "blockcast",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A multi-transaction protocol for storing data in the Bitcoin blockchain.",
   "main": "./src/index.js",
   "scripts": {
-    "test": "source .env && ./node_modules/.bin/jasmine-node test/ --forceexit --verbose --captureExceptions",
+    "test": "./node_modules/.bin/jasmine-node test/ --forceexit --verbose --captureExceptions",
     "test-dev": "source .env && ./node_modules/.bin/jasmine-node test/ --verbose --autotest --captureExceptions --color --watch src/"
   },
   "repository": {
@@ -27,9 +27,9 @@
   },
   "homepage": "https://github.com/williamcotton/blockcast",
   "devDependencies": {
-    "abstract-common-blockchain": "^0.1.6",
     "async": "^1.3.0",
-    "jasmine-node": "^1.14.5"
+    "jasmine-node": "^1.14.5",
+    "mem-common-blockchain": "0.0.1"
   },
   "dependencies": {
     "bitcoinjs-lib": "^1.4.3"
