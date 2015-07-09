@@ -1,6 +1,6 @@
 {
   "name": "blockcast",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A multi-transaction protocol for storing data in the Bitcoin blockchain.",
   "main": "./src/index.js",
   "scripts": {

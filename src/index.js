@@ -70,6 +70,9 @@ var scanSingle = function(options, callback) {
   var transactionTotal;
   var onTransaction = function(err, transactions) {
     var tx = transactions[0];
+    if (!tx) {
+      return callback(err, false);
+    }
     allTransactions.push(tx);
     var payload = bitcoinTransactionBuilder.getPayloadsFromTransactions([tx])[0];
     if (!payload || !payload.data) {
