@@ -31,20 +31,18 @@ var commonWallet = {
 
 We'll need to provide an instance of a commonBlockchain which will provide functions for signing a transaction, propagating a trasnaction, and looking up a transaction by ```txid```.
 
-In this example we're using the in memory version that is provided by ```abstract-common-blockchain```.
+In this example we're using the in memory version that is provided by ```mem-common-blockchain```.
 
 
 ```javascript
-var commonBlockchain = require("abstract-common-blockchain")({
+var commonBlockchain = require("mem-common-blockchain")({
   type: "local"
 });
 
-// var ChainAPI = require("chain-unofficial");
+// or we could connect to testnet
 
-// var commonBlockchain = ChainAPI({
-//   network: "testnet", 
-//   key: process.env.CHAIN_API_KEY_ID, 
-//   secret: process.env.CHAIN_API_KEY_SECRET
+// commonBlockchain = require('blockcypher-unofficial')({
+//   network: "testnet"
 // });
 ```
 
