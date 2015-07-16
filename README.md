@@ -80,6 +80,17 @@ Documents are compressed using DEFLATE and then embedded across up to 16 Bitcoin
 
 This is enough space to contain a number of document digest formats, URIs and URNs. This allows for cross-platform content addressable systems such as BitTorrent and IPFS. Used by [openpublish](https://github.com/blockai/openpublish/)
 
+How can it be better?
+---
+
+* Support 80 byte OP_RETURN
+* Use backwards pointer (native input txid) instead of forwards pointer (spentTxid)
+* Exponential fee for unlimited, yet impractical, data sizes.
+* Remove per transactions byte headers and use start bytes+length or start bytes/end bytes.
+* skip DEFLATE if it is bigger than the data being embedded
+
+Please fork this project and help make it better!
+
 Why Bitcoin?
 ---
 
