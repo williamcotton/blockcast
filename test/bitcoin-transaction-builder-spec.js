@@ -82,6 +82,42 @@ describe("bitcoin transaction builder", function() {
       expect(txHex).toBe(test0.txHex);
       done();
     });
+
+  });
+
+  it("should create transaction with test1.data, using data1.utxo, signed with test1.privateKeyWIF and get text1.txHex", function(done) {
+
+    var test1 = require("./raw-transactions/test1.json");
+
+    var test1Wallet = {
+      signRawTransaction: function(txHex, callback) {
+        var tx = bitcoin.Transaction.fromHex(txHex);
+        var key = bitcoin.ECKey.fromWIF(test1.privateKeyWIF)
+        tx.sign(0, key);
+        var signedTx = tx;
+        var txid = signedTx.getId();
+        var signedTxHex = signedTx.toHex();
+        callback(false, signedTxHex, txid);
+      },
+      address: test1.address
+    }
+
+    var test1Blockchain = {
+      Addresses: {
+        Unspents: function(addresses, cb) { cb(false, [[test1.utxo]]) }
+      }
+    };
+
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      data: test1.data, 
+      id: 0,
+      commonWallet: test1Wallet,
+      commonBlockchain: test1Blockchain
+    }, function(err, signedTransactions) {
+      expect(signedTransactions.length).toBe(8);
+      expect(signedTransactions).toEqual(test1.txHexes);
+      done();
+    });
     
   });
 
