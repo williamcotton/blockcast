@@ -6,18 +6,9 @@ var bitcoin = require("bitcoinjs-lib");
 
 var async = require("async");
 
-var commonBlockchain;
-if (process.env.CHAIN_API_KEY_ID && process.env.CHAIN_API_KEY_SECRET) {
-  var ChainAPI = require("chain-unofficial");
-  commonBlockchain = ChainAPI({
-    network: "testnet", 
-    key: process.env.CHAIN_API_KEY_ID, 
-    secret: process.env.CHAIN_API_KEY_SECRET
-  });
-}
-else {
-  commonBlockchain = require("mem-common-blockchain")();
-}
+var memCommonBlockchain = require("mem-common-blockchain")();
+
+var commonBlockchain = memCommonBlockchain;
 
 var seed = bitcoin.crypto.sha256("test");
 var wallet = new bitcoin.Wallet(seed, bitcoin.networks.testnet);
@@ -58,6 +49,21 @@ var randomString = function(length) {
 };
 
 describe("bitcoin transaction builder", function() {
+
+  it("should create transaction with test0.data and get text0.txHex", function(done) {
+    var test0 = require("./raw-transactions/test0.json");
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      data: test0.data, 
+      id: 0,
+      commonWallet: commonWallet,
+      commonBlockchain: memCommonBlockchain
+    }, function(err, signedTransactions) {
+      expect(signedTransactions.length).toBe(1);
+      var txHex = signedTransactions[0];
+      expect(txHex).toBe(test0.txHex);
+      done();
+    });
+  });
 
   it("should create the transaction for a random string of 30 bytes", function(done) {
     var data = randomString(30);

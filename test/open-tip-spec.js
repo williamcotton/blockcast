@@ -3,18 +3,7 @@ jasmine.getEnv().defaultTimeoutInterval = 50000;
 var bitcoin = require("bitcoinjs-lib");
 var openTip = require("../src/open-tip");
 
-var commonBlockchain;
-if (process.env.CHAIN_API_KEY_ID && process.env.CHAIN_API_KEY_SECRET) {
-  var ChainAPI = require("chain-unofficial");
-  commonBlockchain = ChainAPI({
-    network: "testnet", 
-    key: process.env.CHAIN_API_KEY_ID, 
-    secret: process.env.CHAIN_API_KEY_SECRET
-  });
-}
-else {
-  commonBlockchain = require("mem-common-blockchain")();
-}
+var commonBlockchain = require("mem-common-blockchain")();
 
 var seed = bitcoin.crypto.sha256("test");
 var wallet = new bitcoin.Wallet(seed, bitcoin.networks.testnet);

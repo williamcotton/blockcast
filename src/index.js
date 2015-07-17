@@ -194,5 +194,6 @@ module.exports = {
   parse: dataPayload.getInfo,
   tip: tip,
   payloadsLength: payloadsLength,
-  parseTip: parseTip
+  parseTip: parseTip,
+  bitcoinTransactionBuilder: bitcoinTransactionBuilder
 };
