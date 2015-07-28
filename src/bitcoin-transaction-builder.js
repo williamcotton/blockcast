@@ -127,7 +127,7 @@ var createSignedTransactionsWithData = function(options, callback) {
       var txid;
 
       buildStatus({
-        response: "got payloads"
+        response: "got payloads",
         data: data,
         payloadsLength: payloadsLength
       });
