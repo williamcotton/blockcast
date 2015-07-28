@@ -109,6 +109,7 @@ var createSignedTransactionsWithData = function(options, callback) {
   var commonWallet = options.commonWallet;
   var address = commonWallet.address;
   var commonBlockchain = options.commonBlockchain;
+  var buildStatus = options.buildStatus || function() {};
   var signTransaction = signFromTransactionHex(commonWallet.signRawTransaction);
   options.signTransaction = signTransaction;
   var data = options.data;
@@ -124,6 +125,12 @@ var createSignedTransactionsWithData = function(options, callback) {
       var signedTransactionsCounter = 0;
       var payloadsLength = payloads.length;
       var txid;
+
+      buildStatus({
+        response: "got payloads"
+        data: data,
+        payloadsLength: payloadsLength
+      });
 
       var totalCost = payloadsLength * fee;
       var existingUnspents = [];
@@ -149,6 +156,14 @@ var createSignedTransactionsWithData = function(options, callback) {
         var signedTxBuilt = signedTx.build();
         var signedTxHex = signedTxBuilt.toHex();
         var signedTxid = signedTxBuilt.getId();
+
+        buildStatus({
+          response: "signed transaction",
+          txid: signedTxid,
+          count: signedTransactionsCounter,
+          payloadsLength: payloadsLength
+        });
+
         if (signedTransactionsCounter == 0) {
           txid = signedTxid;
         }
