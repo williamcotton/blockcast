@@ -3,6 +3,10 @@ blockcast
 
 A multi-transaction protocol for storing data in the Bitcoin blockchain.
 
+This protocol is intended for use while **developing** ```OP_RETURN``` based protocols. Mature protocols should switch to a custom ```OP_RETURN``` method that uses as few transactions as possible to store data. 
+
+In the meantime, save yourself from premature optimizations. Wait until you've figured out your protocol's most basic requirements so you don't hold up developing applications that consume your APIs.
+
 Posting a message
 ---
 
@@ -103,14 +107,14 @@ What about polluting the blockchain?
 
 We will move this protocol to a Bitcoin sidechain designed specifically for public data as soon as the technology for building sidechains becomes available.
 
-In the meantime we've created our own centralized public-access data store call [bitstore](https://github.com/blockai/bitstore-client/) that uses Bitcoin PKI for authentication, Bitcoin for payments, and pollutes the Bitcoin blockchain with no other data than a reference URI and a signed hash of the document. The multi-transaction Blockcast protocol will still be useful for storing this metadata as it will be more than 40 bytes.
+In the meantime we've been using this protocol while prototyping other protocols that rely on storing metadata in the Bitcoin blockchain.
 
 Woodsy Owl says "Give a Hoot! Don't Pollute!"
 
 What about an alternative currency like Namecoin?
 ---
 
-Namecoin doesn't match this specific use-case as documents expire after ~200 days. 
+Namecoin doesn't match all specific use-cases as documents expire after ~200 days. 
 
 It also lacks the infrastructure of exchanges, APIs, tools, and software that support Bitcoin.
 
