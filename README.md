@@ -121,3 +121,8 @@ It also lacks the infrastructure of exchanges, APIs, tools, and software that su
 Ultimately we feel that Bitcoin sidechains are a better approach to crypto-currencies than having competing alt-coins.
 
 Building any application on top of Bitcoin creates an incentive to own Bitcoin. Incentives to own Bitcoin keep miners happy. Happy miners create happy Bitcoin.
+
+Was this always intended for prototyping?
+---
+
+No, this started out as some sort of "Twitter on the Blockchain" protocol but it quickly became clear that the current Bitcoin blockchain is most useful for storing metadata related to digital assets and not as a generic decentralized data store.
