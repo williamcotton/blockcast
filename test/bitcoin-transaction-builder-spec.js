@@ -8,22 +8,19 @@ var async = require("async");
 
 var commonBlockchain = require("mem-common-blockchain")();
 
-var seed = bitcoin.crypto.sha256("test");
-var wallet = new bitcoin.Wallet(seed, bitcoin.networks.testnet);
-var address = wallet.generateAddress();
+var testCommonWallet = require('test-common-wallet');
 
-var signRawTransaction = function(txHex, cb) {
-  var tx = bitcoin.Transaction.fromHex(txHex);
-  var signedTx = wallet.signWith(tx, [address]);
-  var txid = signedTx.getId();
-  var signedTxHex = signedTx.toHex();
-  cb(false, signedTxHex, txid);
-};
+var commonWallet = testCommonWallet({
+  seed: "test",
+  network: "testnet",
+  commonBlockchain: commonBlockchain
+});
 
-var commonWallet = {
-  signRawTransaction: signRawTransaction,
-  address: address
-}
+var anotherCommonWallet = testCommonWallet({
+  seed: "test1",
+  network: "testnet",
+  commonBlockchain: commonBlockchain
+});
 
 var loremIpsum = "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?";
 
@@ -138,15 +135,13 @@ describe("bitcoin transaction builder", function() {
           return done(err);
         }
         var txids = [res.txid];
-        setTimeout(function() {
-          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-            //console.log(transactions);
-            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-              expect(data).toBe(decodedData);
-              done();
-            });
+        commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+          //console.log(transactions);
+          bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
+            expect(data).toBe(decodedData);
+            done();
           });
-        }, 1500);
+        });
       });
     });
   });
@@ -172,22 +167,17 @@ describe("bitcoin transaction builder", function() {
         txids.push(res.txid);
         propagateCounter++;
         if (propagateCounter == signedTransactions.length) {
-          setTimeout(function() {
-            commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-              bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-                expect(data).toBe(decodedData);
-                done();
-              });
+          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
+              expect(data).toBe(decodedData);
+              done();
             });
-          }, 1500);
+          });
         }
       }
 
       commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
-      // delay the second one
-      setTimeout(function() {
-        commonBlockchain.Transactions.Propagate(signedTransactions[1], propagateResponse);
-      }, 1500);
+      commonBlockchain.Transactions.Propagate(signedTransactions[1], propagateResponse);
 
     });
   });
@@ -213,17 +203,14 @@ describe("bitcoin transaction builder", function() {
         txids.push(res.txid);
         propagateCounter++;
         if (propagateCounter == signedTransactions.length) {
-          setTimeout(function() {
-              //console.log(txids);
-              commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-                //console.log("ttt", transactions);
-                bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-                  expect(data).toBe(decodedData);
-                  done();
-                });
-              });
-
-          }, 3500);
+          //console.log(txids);
+          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+            //console.log("ttt", transactions);
+            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
+              expect(data).toBe(decodedData);
+              done();
+            });
+          });
         }
         else {
           commonBlockchain.Transactions.Propagate(signedTransactions[propagateCounter], propagateResponse);
@@ -254,17 +241,13 @@ describe("bitcoin transaction builder", function() {
         txids.push(res.txid);
         propagateCounter++;
         if (propagateCounter == signedTransactions.length) {
-          setTimeout(function() {
-
-              commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-                //console.log("ttt", transactions);
-                bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-                  expect(data).toBe(decodedData);
-                  done();
-                });
-              });
-            
-          }, 6500);
+          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+            //console.log("ttt", transactions);
+            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
+              expect(data).toBe(decodedData);
+              done();
+            });
+          });
         }
         else {
           commonBlockchain.Transactions.Propagate(signedTransactions[propagateCounter], propagateResponse);
@@ -272,6 +255,38 @@ describe("bitcoin transaction builder", function() {
       }
       commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
     });  
+  });
+
+  it("should create the transaction with a custom primaryTx", function(done) {
+    var data = randomString(30);
+    var id = parseInt(Math.random()*16);
+    var primaryTx = new bitcoin.TransactionBuilder();
+    var value = 12345;
+    primaryTx.addOutput(anotherCommonWallet.address, value);
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      primaryTx: primaryTx,
+      data: data, 
+      id: id, 
+      commonWallet: commonWallet,
+      commonBlockchain: commonBlockchain
+    }, function(err, signedTransactions) {
+      expect(signedTransactions.length).toBe(1);
+      var txHex = signedTransactions[0];
+      commonBlockchain.Transactions.Propagate(txHex, function(err, res) {
+        console.log(res.status, "1/1");
+        if (err) {
+          return done(err);
+        }
+        var txids = [res.txid];
+        commonBlockchain.Transactions.Get(txids, function(err, transactions) {
+          expect(transactions[0].vout[0].value).toBe(value);
+          bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
+            expect(data).toBe(decodedData);
+            done();
+          });
+        });
+      });
+    });
   });
 
 });

@@ -32,9 +32,9 @@ var loadAndSignTransaction = function(options, callback) {
   });
 };
 
-var createTransactionWithPayload = function(payload) {
+var createTransactionWithPayload = function(payload, primaryTx) {
   var payloadScript = Bitcoin.Script.fromChunks([Bitcoin.opcodes.OP_RETURN, payload]);
-  var tx = new Bitcoin.TransactionBuilder();
+  var tx = primaryTx || new Bitcoin.TransactionBuilder();
   tx.addOutput(payloadScript, 0);
   return tx;
 };
@@ -106,6 +106,7 @@ var signFromTransactionHex = function(signTransactionHex) {
 };
 
 var createSignedTransactionsWithData = function(options, callback) {
+  var primaryTx = options.primaryTx;
   var commonWallet = options.commonWallet;
   var address = commonWallet.address;
   var commonBlockchain = options.commonBlockchain;
@@ -195,7 +196,7 @@ var createSignedTransactionsWithData = function(options, callback) {
         }
       };
 
-      var tx = createTransactionWithPayload(payloads[0]);
+      var tx = createTransactionWithPayload(payloads[0], primaryTx);
 
       loadAndSignTransaction({
         fee: fee,
