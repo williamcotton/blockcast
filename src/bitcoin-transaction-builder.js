@@ -4,6 +4,8 @@ var bitcoin = require("bitcoinjs-lib");
 
 var dataPayload = require("./data-payload");
 
+var txHexToJSON = require('bitcoin-tx-hex-to-json');
+
 var loadAndSignTransaction = function(options, callback) {
   var tx = options.tx;
   var address = options.address;
@@ -178,11 +180,12 @@ var createSignedTransactionsWithData = function(options, callback) {
             callback(false, signedTransactions, txid);
           }
           else {
+
+            var vout = signedTx.tx.outs.length - 1;
+            
             var payload = payloads[signedTransactionsCounter];
             var tx = createTransactionWithPayload(payload);
-            var value = signedTx.tx.outs[1].value;
-            
-            var vout = 1;
+            var value = signedTx.tx.outs[vout].value;
 
             var unspent = {
               txid: signedTxid,
@@ -200,7 +203,7 @@ var createSignedTransactionsWithData = function(options, callback) {
           }
         }
 
-        if (signPrimaryTxHex) {
+        if (signPrimaryTxHex && signedTransactionsCounter == 0) {
           signPrimaryTxHex(signedTxHex, function(err, signedTxHex) {
             var _tx = bitcoin.TransactionBuilder.fromTransaction(bitcoin.Transaction.fromHex(signedTxHex));
             onSignedTxHexAndId(signedTxHex, _tx.build().getId());

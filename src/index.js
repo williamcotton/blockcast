@@ -2,6 +2,8 @@ var bitcoinTransactionBuilder = require("./bitcoin-transaction-builder");
 var dataPayload = require("./data-payload");
 var openTip = require("./open-tip");
 
+var txHexToJSON = require('bitcoin-tx-hex-to-json');
+
 var post = function(options, callback) {
   var commonWallet = options.commonWallet;
   var commonBlockchain = options.commonBlockchain;

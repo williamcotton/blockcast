@@ -277,7 +277,7 @@ describe("bitcoin transaction builder", function() {
     });  
   });
 
-  it("should create the transaction with a custom primaryTxHex", function(done) {
+  it("should create the transaction with a custom primaryTxHex with 30 bytes", function(done) {
     var data = randomString(30);
     var id = parseInt(Math.random()*16);
     var value = 12345;
@@ -312,6 +312,40 @@ describe("bitcoin transaction builder", function() {
             // });
           });
         });
+      });
+    });
+  });
+
+  it("should create the transaction with a custom primaryTxHex with 120 bytes", function(done) {
+    var data = randomString(120);
+    var id = parseInt(Math.random()*16);
+    var value = 12345;
+    var signPrimaryTxHex = function(txHex, callback) {
+      anotherCommonWallet.signRawTransaction({txHex: txHex, input: 0}, callback);
+    }
+    anotherCommonWallet.createTransaction({
+      destinationAddress: commonWallet.address,
+      value: value,
+      skipSign: true
+    }, function(err, primaryTxHex) {
+      bitcoinTransactionBuilder.createSignedTransactionsWithData({
+        primaryTxHex: primaryTxHex,
+        signPrimaryTxHex: signPrimaryTxHex,
+        data: data, 
+        id: id, 
+        commonWallet: commonWallet,
+        commonBlockchain: testnetCommonBlockchain
+      }, function(err, signedTransactions) {
+        expect(signedTransactions.length).toBe(4);
+        var txHex = signedTransactions[0];
+        var tx = txHexToJSON(txHex);
+        expect(tx.vout[0].value).toBe(12345);
+        expect(tx.vout[2].value).toBe(0);
+        var txHex1 = signedTransactions[1];
+        var tx1 = txHexToJSON(txHex1);
+        expect(tx1.vin[0].txid).toBe(tx.txid);
+        expect(tx1.vin[0].vout).toBe(3);
+        done();
       });
     });
   });
