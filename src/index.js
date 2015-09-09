@@ -7,13 +7,15 @@ var post = function(options, callback) {
   var commonBlockchain = options.commonBlockchain;
   var data = options.data;
   var fee = options.fee;
-  var primaryTx = options.primaryTx;
+  var primaryTxHex = options.primaryTxHex;
+  var signPrimaryTxHex = options.signPrimaryTxHex;
   var propagationStatus = options.propagationStatus || function() {};
   var buildStatus = options.buildStatus || function() {};
   var retryMax = options.retryMax || 5;
   var id = options.id || 0; // THINK ABOUT THIS!!! Maybe go through their recent transactions by default? options.transactions?
   bitcoinTransactionBuilder.createSignedTransactionsWithData({
-    primaryTx: primaryTx,
+    primaryTxHex: primaryTxHex,
+    signPrimaryTxHex: signPrimaryTxHex,
     data: data, 
     id: id, 
     fee: fee,

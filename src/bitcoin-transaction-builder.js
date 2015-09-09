@@ -1,6 +1,6 @@
 var assert = require("assert");
 
-var Bitcoin = require("bitcoinjs-lib");
+var bitcoin = require("bitcoinjs-lib");
 
 var dataPayload = require("./data-payload");
 
@@ -18,6 +18,7 @@ var loadAndSignTransaction = function(options, callback) {
     return 0;
   };
   unspentOutputs.sort(compare);
+  var txInputIndex = tx.inputs.length
   for (var i = unspentOutputs.length - 1; i >= 0; i--) {
     var unspentOutput = unspentOutputs[i];
     if (unspentOutput.value === 0) {
@@ -27,14 +28,15 @@ var loadAndSignTransaction = function(options, callback) {
     tx.addInput(unspentOutput.txid, unspentOutput.vout);
   };
   tx.addOutput(address, unspentValue - fee);
-  options.signTransaction(tx, function(err, signedTx) {
+  options.signTransaction(tx, txInputIndex, function(err, signedTx) {
     callback(false, signedTx);
   });
 };
 
-var createTransactionWithPayload = function(payload, primaryTx) {
-  var payloadScript = Bitcoin.Script.fromChunks([Bitcoin.opcodes.OP_RETURN, payload]);
-  var tx = primaryTx || new Bitcoin.TransactionBuilder();
+var createTransactionWithPayload = function(payload, primaryTxHex) {
+  var primaryTx = primaryTxHex ? bitcoin.TransactionBuilder.fromTransaction(bitcoin.Transaction.fromHex(primaryTxHex)) : false;
+  var payloadScript = bitcoin.Script.fromChunks([bitcoin.opcodes.OP_RETURN, payload]);
+  var tx = primaryTx || new bitcoin.TransactionBuilder();
   tx.addOutput(payloadScript, 0);
   return tx;
 };
@@ -96,17 +98,18 @@ var signFromTransactionHex = function(signTransactionHex) {
   if (!signTransactionHex) {
     return false;
   }
-  return function(tx, callback) {
+  return function(tx, input, callback) {
     var txHex = tx.tx.toHex();
-    signTransactionHex(txHex, function(error, signedTxHex) {
-      var signedTx = Bitcoin.TransactionBuilder.fromTransaction(Bitcoin.Transaction.fromHex(signedTxHex));
+    signTransactionHex({txHex: txHex, input: input}, function(error, signedTxHex) {
+      var signedTx = bitcoin.TransactionBuilder.fromTransaction(bitcoin.Transaction.fromHex(signedTxHex));
       callback(error, signedTx);
     });
   };
 };
 
 var createSignedTransactionsWithData = function(options, callback) {
-  var primaryTx = options.primaryTx;
+  var primaryTxHex = options.primaryTxHex;
+  var signPrimaryTxHex = options.signPrimaryTxHex;
   var commonWallet = options.commonWallet;
   var address = commonWallet.address;
   var commonBlockchain = options.commonBlockchain;
@@ -154,57 +157,74 @@ var createSignedTransactionsWithData = function(options, callback) {
       };
 
       var signedTransactionResponse = function(err, signedTx) {
-        var signedTxBuilt = signedTx.build();
+        var signedTxBuilt = signedTx.buildIncomplete();
         var signedTxHex = signedTxBuilt.toHex();
         var signedTxid = signedTxBuilt.getId();
 
-        buildStatus({
-          response: "signed transaction",
-          txid: signedTxid,
-          count: signedTransactionsCounter,
-          payloadsLength: payloadsLength
-        });
+        var onSignedTxHexAndId = function(signedTxHex, signedTxid) {
+          buildStatus({
+            response: "signed transaction",
+            txid: signedTxid,
+            count: signedTransactionsCounter,
+            payloadsLength: payloadsLength
+          });
 
-        if (signedTransactionsCounter == 0) {
-          txid = signedTxid;
+          if (signedTransactionsCounter == 0) {
+            txid = signedTxid;
+          }
+          signedTransactions[signedTransactionsCounter] = signedTxHex;
+          signedTransactionsCounter++;
+          if (signedTransactionsCounter == payloadsLength) {
+            callback(false, signedTransactions, txid);
+          }
+          else {
+            var payload = payloads[signedTransactionsCounter];
+            var tx = createTransactionWithPayload(payload);
+            var value = signedTx.tx.outs[1].value;
+            
+            var vout = 1;
+
+            var unspent = {
+              txid: signedTxid,
+              vout: vout,
+              value: value
+            };
+
+            loadAndSignTransaction({
+              fee: fee,
+              tx: tx,
+              unspentOutputs: [unspent],
+              address: address,
+              signTransaction: options.signTransaction
+            }, signedTransactionResponse);
+          }
         }
-        signedTransactions[signedTransactionsCounter] = signedTxHex;
-        signedTransactionsCounter++;
-        if (signedTransactionsCounter == payloadsLength) {
-          callback(false, signedTransactions, txid);
+
+        if (signPrimaryTxHex) {
+          signPrimaryTxHex(signedTxHex, function(err, signedTxHex) {
+            var _tx = bitcoin.TransactionBuilder.fromTransaction(bitcoin.Transaction.fromHex(signedTxHex));
+            onSignedTxHexAndId(signedTxHex, _tx.build().getId());
+          });
         }
         else {
-          var payload = payloads[signedTransactionsCounter];
-          var tx = createTransactionWithPayload(payload);
-          var value = signedTx.tx.outs[1].value;
-          
-          var vout = 1;
-
-          var unspent = {
-            txid: signedTxid,
-            vout: vout,
-            value: value
-          };
-
-          loadAndSignTransaction({
-            fee: fee,
-            tx: tx,
-            unspentOutputs: [unspent],
-            address: address,
-            signTransaction: options.signTransaction
-          }, signedTransactionResponse);
+          onSignedTxHexAndId(signedTxHex, signedTxid);
         }
+
+
       };
 
-      var tx = createTransactionWithPayload(payloads[0], primaryTx);
+      var tx = createTransactionWithPayload(payloads[0], primaryTxHex);
 
-      loadAndSignTransaction({
+      var signOptions = {
         fee: fee,
         tx: tx,
         unspentOutputs: existingUnspents,
         address: address,
-        signTransaction: options.signTransaction
-      }, signedTransactionResponse);
+        signTransaction: options.signTransaction,
+        signPrimaryTxHex: signPrimaryTxHex
+      };
+
+      loadAndSignTransaction(signOptions, signedTransactionResponse);
     });
   });
 };
