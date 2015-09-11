@@ -7,7 +7,7 @@ This protocol is intended for use while **developing** ```OP_RETURN``` based pro
 
 In the meantime, save yourself from premature optimizations. Wait until you've figured out your protocol's most basic requirements so you don't hold up developing applications that consume your APIs.
 
-Posting a message
+Posting data
 ---
 
 In our examples we're going to use ```bitcoinjs-lib``` to create our wallet.
@@ -39,15 +39,15 @@ In this example we're using the in memory version that is provided by ```mem-com
 
 
 ```javascript
-var commonBlockchain = require("mem-common-blockchain")({
+var memCommonBlockchain = require("mem-common-blockchain")({
   type: "local"
 });
 
 // or we could connect to testnet
 
-// commonBlockchain = require('blockcypher-unofficial')({
-//   network: "testnet"
-// });
+testnetCommonBlockchain = require('blockcypher-unofficial')({
+  network: "testnet"
+});
 ```
 
 And finally we're ready to post.
@@ -56,22 +56,23 @@ And finally we're ready to post.
 blockcast.post({
   data: "Hello, world! I'm posting a message that is compressed and spread out across a number of bitcoin transactions!",
   commonWallet: commonWallet,
-  commonBlockchain: commonBlockchain
+  commonBlockchain: memCommonBlockchain
 }, function(error, response) {
   console.log(response);
 });
 ```
 
-Scan for a document from a single transaction
+Scan for data from a single transaction
 ---
 
 We can also provide the transaction hash from the first transaction's payload.
 
 ```javascript
 blockcast.scanSingle({
-  txid: '',
-  commonBlockchain: commonBlockchain
-}, function(err, document) {
+  txid: 'fe44cae45f69dd1d6115815356a73b9c5179feff1b276d99ac0e283156e1cd01',
+  commonBlockchain: testnetCommonBlockchain
+}, function(err, body) {
+  var document = JSON.parse(body);
   console.log(document);
 });
 
@@ -80,20 +81,15 @@ blockcast.scanSingle({
 How does it work?
 ---
 
-Documents are compressed using DEFLATE and then embedded across up to 16 Bitcoin transactions in OP_RETURN outputs along with custom headers allowing for documents no larger than 607 bytes. 
+Documents are compressed using DEFLATE and then embedded across up to 16 Bitcoin transactions in OP_RETURN outputs allowing for total compressed size of no larger than 1277 bytes. 
 
-This is enough space to contain a number of document digest formats, URIs and URNs. This allows for cross-platform content addressable systems such as BitTorrent and IPFS. Used by [openpublish](https://github.com/blockai/openpublish/)
+Each blockcast post has a primary transaction identified by the magic header ```0x1f00```. The compressed data can be rebuilt by following the chain of previous transactions back through their inputs and appending data stored in OP_RETURN.
 
-How can it be better?
----
+```OP_RETURN 0x1f00032d8d5b4bc4301085ff4ac973d14c9a34c9beb982c20aa28222bee5ea06bb6d4cb3ec45fcef4ed59799e19cf39df92253262b52484b6c4d5b3cbb4e704a1def406a6bc1784a95604a071e7aea```
 
-* Support 80 byte OP_RETURN
-* Use backwards pointer (native input txid) instead of forwards pointer (spentTxid)
-* Exponential fee for unlimited, yet impractical, data sizes.
-* Remove per transactions byte headers and use start bytes+length or start bytes/end bytes.
-* skip DEFLATE if it is bigger than the data being embedded
+The total number of tranactions is stored as the first byte immediately following the magic header. In the above example, ```0x1f0003```, the total transaction count is 3, meaning that two more transactions bust be sequentially scanned in order to reconstruct the full compressed data.
 
-Please fork this project and help make it better!
+This is enough space to contain a number of document digest formats, URIs and URNs. This allows for cross-platform content addressable formats between systems like BitTorrent and IPFS. Used by [openpublish](https://github.com/blockai/openpublish/).
 
 Why Bitcoin?
 ---
