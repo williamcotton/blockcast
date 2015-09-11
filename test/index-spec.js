@@ -171,6 +171,18 @@ describe("blockcast", function() {
     });
   });
 
+  it("should not scan single txid b32192c9d2d75a8a28dd4034ea61eacb0dfe4f226acb502cfe108df20fbddebc", function(done) {    
+    var txid = "b32192c9d2d75a8a28dd4034ea61eacb0dfe4f226acb502cfe108df20fbddebc";
+    blockcast.scanSingle({
+      txid: txid,
+      commonBlockchain: commonBlockchain
+    }, function(err, data) {
+      expect(data).toBe(false);
+      expect(err).toBe("not blockcast");
+      done();
+    });
+  });
+
   it("should post a message of a random string of 720 bytes and then scan (memCommonBlockchain) ", function(done) {
     var randomStringData = randomString(720);
     blockcast.post({
@@ -189,7 +201,6 @@ describe("blockcast", function() {
     });
       done();
     });
-
   });
 
 });

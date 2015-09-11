@@ -80,7 +80,6 @@ var scanSingle = function(options, callback) {
   var length;
   var onTransaction = function(err, transactions) {
     var tx = transactions[0];
-    allTransactions.push(tx);
     if (!tx) {
       return callback(err, false);
     }
@@ -98,6 +97,10 @@ var scanSingle = function(options, callback) {
         payloads.push(data);
       }
     }
+    if (allTransactions.length === 0 && !parsedLength) {
+      return callback("not blockcast", false);
+    }
+    allTransactions.push(tx);
     if (allTransactions.length == transactionTotal) {
       dataPayload.decode(payloads, function(err, data) {
         callback(err, data);
