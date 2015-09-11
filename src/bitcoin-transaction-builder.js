@@ -1,10 +1,12 @@
 var assert = require("assert");
-
+var async = require('async');
 var bitcoin = require("bitcoinjs-lib");
+var txHexToJSON = require('bitcoin-tx-hex-to-json');
 
 var dataPayload = require("./data-payload");
 
-var txHexToJSON = require('bitcoin-tx-hex-to-json');
+var OP_RETURN_BUFFER = new Buffer(1);
+OP_RETURN_BUFFER.writeUInt8(bitcoin.opcodes.OP_RETURN, 0);
 
 var loadAndSignTransaction = function(options, callback) {
   var tx = options.tx;
@@ -35,64 +37,78 @@ var loadAndSignTransaction = function(options, callback) {
   });
 };
 
+var getPrimaryTransactions = function(transactions) {
+  var primaryTransactions = [];
+  for (var i = 0; i < transactions.length; i++) {
+    var transactionHex = transactions[i];
+    var transaction = txHexToJSON(transactionHex);
+    //console.log(transaction);
+    var vout = transaction.vout;
+    for (var j = vout.length - 1; j >= 0; j--) {
+      var output = vout[j];
+      var scriptPubKey = output.scriptPubKey.hex;
+      var scriptPubKeyBuffer = new Buffer(scriptPubKey, 'hex');
+      //console.log(scriptPubKeyBuffer);
+      if (scriptPubKeyBuffer[0] == 106) {
+        var data = scriptPubKeyBuffer.slice(2,scriptPubKeyBuffer.length);
+        var length = dataPayload.parse(data);
+        if (length) {
+          primaryTransactions.push({tx: transaction, length: length, dataOutput: j, data: data});
+        }
+      }
+    }
+  };
+  return primaryTransactions;
+};
+
 var createTransactionWithPayload = function(payload, primaryTxHex) {
   var primaryTx = primaryTxHex ? bitcoin.TransactionBuilder.fromTransaction(bitcoin.Transaction.fromHex(primaryTxHex)) : false;
-  var payloadScript = bitcoin.Script.fromChunks([bitcoin.opcodes.OP_RETURN, payload]);
+  var lengthBuffer = new Buffer(1);
+  lengthBuffer.writeUInt8(payload.length, 0);
+  var payloadScript = bitcoin.Script.fromBuffer(Buffer.concat([OP_RETURN_BUFFER, lengthBuffer, payload]));
   var tx = primaryTx || new bitcoin.TransactionBuilder();
   tx.addOutput(payloadScript, 0);
   return tx;
 };
 
-var getPayloadsFromTransactions = function(transactions) {
-  var payloads = [];
-  for (var i = 0; i < transactions.length; i++) {
-    var transaction = transactions[i];
-    //console.log(transaction);
-    var vout = transaction.vout;
-    var address = transaction.vin[0] ? transaction.vin[0].addresses[0] : null;
-    //console.log("address", address);
-    for (var j = vout.length - 1; j >= 0; j--) {
-      var output = vout[j];
-      var scriptPubKey = output.scriptPubKey.hex;
-      //console.log("scriptPubKey", scriptPubKey);
-      var scriptPubKeyBuffer = new Buffer(scriptPubKey, 'hex');
-      if (scriptPubKeyBuffer[0] == 106 && scriptPubKeyBuffer[2] == 31) {
-        var payload = scriptPubKeyBuffer.slice(2, scriptPubKeyBuffer.length);
-        //console.log("payload", payload);
-        var info = dataPayload.getInfo(payload);
-        var data = payload;
-        payloads.push({
-          data: payload,
-          id: info.id,
-          index: info.index,
-          length: info.length,
-          address: address
-        });
-      }
-    }
-  };
-  return payloads;
-};
-
-var findByIdAndAddress = function(payloads, options) {
-  var matchingPayloads = [];
-  payloads.forEach(function(payload) {
-    if (payload.id == options.id && payload.address == options.address) {
-      matchingPayloads.push(payload.data);
-    }
-  });
-  return matchingPayloads;
-}
-
 var getData = function(options, callback) {
   var transactions = options.transactions;
-  var commonWallet = options.commonWallet;
-  var address = commonWallet.address;
-  var id = options.id;
-  var unsortedPayloads = findByIdAndAddress(getPayloadsFromTransactions(transactions), {address: address, id: id});
-  var payloads = dataPayload.sort(unsortedPayloads);
-  dataPayload.decode(payloads, function(error, decodedData) {
-    callback(error, decodedData)
+  var primaryTransactions = getPrimaryTransactions(transactions);
+  var decodedTransactions = [];
+  async.each(primaryTransactions, function(primaryTx, cb) {
+    var tx = primaryTx.tx;
+    var data = primaryTx.data;
+    var length = primaryTx.length;
+    var dataOutput = primaryTx.dataOutput;
+    var payloads = [];
+    for (var i = 0; i < length; i++) {
+      if (i === 0) {
+        payloads.push(data);
+      }
+      else {
+        var prevTxid = tx.vin[dataOutput].txid;
+        var prevTx;
+        transactions.forEach(function(txHex) {
+          _tx = txHexToJSON(txHex);
+          if (prevTxid === _tx.txid) {
+            tx = _tx;
+            prevTx = tx;
+            var hexData = tx.vout[dataOutput].scriptPubKey.hex;
+            var data = new Buffer(hexData, 'hex');
+            payloads.push(data.slice(2, data.length));
+          }
+        });
+      }
+    };
+    dataPayload.decode(payloads, function(err, decodedData) {
+      var decodedTransaction = {
+        data: decodedData
+      }
+      decodedTransactions.push(decodedTransaction);
+      cb()
+    })
+  }, function(err) {
+    callback(false, decodedTransactions);
   });
 };
 
@@ -114,6 +130,7 @@ var createSignedTransactionsWithData = function(options, callback) {
   var signPrimaryTxHex = options.signPrimaryTxHex;
   var commonWallet = options.commonWallet;
   var address = commonWallet.address;
+  var fee = options.fee || 1000;
   var commonBlockchain = options.commonBlockchain;
   var buildStatus = options.buildStatus || function() {};
   var signTransaction = signFromTransactionHex(commonWallet.signRawTransaction);
@@ -121,14 +138,10 @@ var createSignedTransactionsWithData = function(options, callback) {
   var data = options.data;
   commonBlockchain.Addresses.Unspents([address], function(err, addresses_unspents) {
     var unspentOutputs = addresses_unspents[0];
-    var id = options.id;
-    var fee = options.fee || 1000;
-    var address = commonWallet.address;
-
-    dataPayload.create({data: data, id: id}, function(err, payloads) {
+    dataPayload.create({data: data}, function(err, payloads) {
 
       var signedTransactions = [];
-      var signedTransactionsCounter = 0;
+      var signedTransactionsCounter = payloads.length-1;
       var payloadsLength = payloads.length;
       var txid;
 
@@ -159,6 +172,7 @@ var createSignedTransactionsWithData = function(options, callback) {
       };
 
       var signedTransactionResponse = function(err, signedTx) {
+
         var signedTxBuilt = signedTx.buildIncomplete();
         var signedTxHex = signedTxBuilt.toHex();
         var signedTxid = signedTxBuilt.getId();
@@ -170,21 +184,24 @@ var createSignedTransactionsWithData = function(options, callback) {
             count: signedTransactionsCounter,
             payloadsLength: payloadsLength
           });
-
-          if (signedTransactionsCounter == 0) {
-            txid = signedTxid;
-          }
           signedTransactions[signedTransactionsCounter] = signedTxHex;
-          signedTransactionsCounter++;
-          if (signedTransactionsCounter == payloadsLength) {
-            callback(false, signedTransactions, txid);
+          signedTransactionsCounter--;
+          if (signedTransactionsCounter < 0) {
+            callback(false, signedTransactions, signedTxid);
           }
           else {
 
             var vout = signedTx.tx.outs.length - 1;
-            
+
             var payload = payloads[signedTransactionsCounter];
-            var tx = createTransactionWithPayload(payload);
+            var tx;
+            if (signedTransactionsCounter === 0) {
+              tx = createTransactionWithPayload(payload, primaryTxHex);
+            }
+            else {
+              tx = createTransactionWithPayload(payload);
+            }
+            
             var value = signedTx.tx.outs[vout].value;
 
             var unspent = {
@@ -216,7 +233,13 @@ var createSignedTransactionsWithData = function(options, callback) {
 
       };
 
-      var tx = createTransactionWithPayload(payloads[0], primaryTxHex);
+      var tx;
+      if (signedTransactionsCounter === 0) {
+        tx = createTransactionWithPayload(payloads[signedTransactionsCounter], primaryTxHex);
+      }
+      else {
+        tx = createTransactionWithPayload(payloads[signedTransactionsCounter]);
+      }
 
       var signOptions = {
         fee: fee,
@@ -234,7 +257,5 @@ var createSignedTransactionsWithData = function(options, callback) {
 
 module.exports = {
   createSignedTransactionsWithData: createSignedTransactionsWithData,
-  getPayloadsFromTransactions: getPayloadsFromTransactions,
-  dataPayload: dataPayload,
   getData: getData
 };

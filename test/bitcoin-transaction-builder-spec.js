@@ -1,13 +1,11 @@
 jasmine.getEnv().defaultTimeoutInterval = 50000;
 
 var bitcoinTransactionBuilder = require("../src/bitcoin-transaction-builder");
+var dataPayload = require("../src/data-payload");
 
 var txHexToJSON = require('bitcoin-tx-hex-to-json');
-
 var bitcoin = require("bitcoinjs-lib");
-
 var async = require("async");
-
 var commonBlockchain = require("mem-common-blockchain")();
 
 var testnetCommonBlockchain = require('blockcypher-unofficial')({
@@ -83,7 +81,6 @@ describe("bitcoin transaction builder", function() {
 
     bitcoinTransactionBuilder.createSignedTransactionsWithData({
       data: test0.data, 
-      id: 0,
       commonWallet: test0Wallet,
       commonBlockchain: test0Blockchain
     }, function(err, signedTransactions) {
@@ -127,11 +124,10 @@ describe("bitcoin transaction builder", function() {
 
     bitcoinTransactionBuilder.createSignedTransactionsWithData({
       data: test1.data, 
-      id: 0,
       commonWallet: test1Wallet,
       commonBlockchain: test1Blockchain
     }, function(err, signedTransactions) {
-      expect(signedTransactions.length).toBe(8);
+      expect(signedTransactions.length).toBe(4);
       expect(signedTransactions).toEqual(test1.txHexes);
       done();
     });
@@ -140,162 +136,161 @@ describe("bitcoin transaction builder", function() {
 
   it("should create the transaction for a random string of 30 bytes", function(done) {
     var data = randomString(30);
-    var id = parseInt(Math.random()*16);
     bitcoinTransactionBuilder.createSignedTransactionsWithData({
       data: data, 
-      id: id, 
       commonWallet: commonWallet,
       commonBlockchain: commonBlockchain
-    }, function(err, signedTransactions) {
+    }, function(err, signedTransactions, txid) {
       expect(signedTransactions.length).toBe(1);
-      var txHex = signedTransactions[0];
-      commonBlockchain.Transactions.Propagate(txHex, function(err, res) {
-        console.log(res.status, "1/1");
-        if (err) {
-          return done(err);
-        }
-        var txids = [res.txid];
-        commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-          //console.log(transactions);
-          bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-            expect(data).toBe(decodedData);
-            done();
-          });
-        });
+      var primaryTxHex = signedTransactions[0];
+      var primaryTx = txHexToJSON(primaryTxHex);
+      expect(primaryTx.txid).toBe(txid);
+      var primaryData = new Buffer(primaryTx.vout[0].scriptPubKey.hex, 'hex');
+      var length = dataPayload.parse(primaryData.slice(2, primaryData.length));
+      expect(length).toBe(1);
+      bitcoinTransactionBuilder.getData({transactions:signedTransactions}, function(error, decodedTransactions) {
+        var decodedData = decodedTransactions[0].data;
+        expect(data).toBe(decodedData);
+        done();
       });
     });
   });
 
-  it("should create the transaction for a random string of 70 bytes", function(done) {
-    var data = randomString(70);
-    var id = parseInt(Math.random()*16);
+  it("should create the transaction for a random string of 170 bytes", function(done) {
+    var data = randomString(170);
     bitcoinTransactionBuilder.createSignedTransactionsWithData({
       data: data, 
-      id: id, 
       commonWallet: commonWallet,
       commonBlockchain: commonBlockchain
-    }, function(err, signedTransactions) {
+    }, function(err, signedTransactions, txid) {
       expect(signedTransactions.length).toBe(2);
-      var propagateCounter = 0;
-      var txids = [];
-      var propagateResponse = function(err, res) {
-        //console.log(err, res);
-        console.log(propagateCounter + 1 + "/" + signedTransactions.length);
-        if (err) {
-          return done(err);
-        }
-        txids.push(res.txid);
-        propagateCounter++;
-        if (propagateCounter == signedTransactions.length) {
-          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-              expect(data).toBe(decodedData);
-              done();
-            });
-          });
-        }
-      }
-
-      commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
-      commonBlockchain.Transactions.Propagate(signedTransactions[1], propagateResponse);
-
+      var primaryTxHex = signedTransactions[0];
+      var primaryTx = txHexToJSON(primaryTxHex);
+      expect(primaryTx.txid).toBe(txid);
+      var primaryData = new Buffer(primaryTx.vout[0].scriptPubKey.hex, 'hex');
+      var length = dataPayload.parse(primaryData.slice(2, primaryData.length));
+      var txHex1 = signedTransactions[1];
+      var tx1 = txHexToJSON(txHex1);
+      expect(primaryTx.vin[0].txid).toBe(tx1.txid);
+      expect(length).toBe(2);
+      bitcoinTransactionBuilder.getData({transactions:signedTransactions}, function(error, decodedTransactions) {
+        var decodedData = decodedTransactions[0].data;
+        expect(data).toBe(decodedData);
+        done();
+      });
     });
   });
 
-  it("should create the transaction for a random string of 175 bytes", function(done) {
-    var data = randomString(175);
-    var id = parseInt(Math.random()*16);
+  it("should create the transaction for a random string of 320 bytes", function(done) {
+    var data = randomString(320);
     bitcoinTransactionBuilder.createSignedTransactionsWithData({
       data: data, 
-      id: id, 
       commonWallet: commonWallet,
       commonBlockchain: commonBlockchain
-    }, function(err, signedTransactions) {
-      expect(signedTransactions.length).toBe(5);
-      var propagateCounter = 0;
-      var txids = [];
-      var propagateResponse = function(err, res, body) {
-        //console.log(err, res);
-        console.log(propagateCounter + 1 + "/" + signedTransactions.length);
-        if (err) {
-          return done(err);
-        }
-        txids.push(res.txid);
-        propagateCounter++;
-        if (propagateCounter == signedTransactions.length) {
-          //console.log(txids);
-          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-            //console.log("ttt", transactions);
-            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-              expect(data).toBe(decodedData);
-              done();
-            });
-          });
-        }
-        else {
-          commonBlockchain.Transactions.Propagate(signedTransactions[propagateCounter], propagateResponse);
-        }
-      }
-      commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
+    }, function(err, signedTransactions, txid) {
+      expect(signedTransactions.length).toBe(4);
+      var primaryTxHex = signedTransactions[0];
+      var primaryTx = txHexToJSON(primaryTxHex);
+      expect(primaryTx.txid).toBe(txid);
+      var primaryData = new Buffer(primaryTx.vout[0].scriptPubKey.hex, 'hex');
+      var length = dataPayload.parse(primaryData.slice(2, primaryData.length));
+      expect(length).toBe(4);
+      var tx1 = txHexToJSON(signedTransactions[1]);
+      expect(primaryTx.vin[0].txid).toBe(tx1.txid);
+      var tx2 = txHexToJSON(signedTransactions[2]);
+      expect(tx1.vin[0].txid).toBe(tx2.txid);
+      var tx3 = txHexToJSON(signedTransactions[3]);
+      expect(tx2.vin[0].txid).toBe(tx3.txid);
+      bitcoinTransactionBuilder.getData({transactions:signedTransactions}, function(error, decodedTransactions) {
+        var decodedData = decodedTransactions[0].data;
+        expect(data).toBe(decodedData);
+        done();
+      });
     });
   });
 
-  it("should create the transaction for full latin paragraph of 865 bytes", function(done) {
-    var data = loremIpsum.slice(0, 865);
-    var id = parseInt(Math.random()*16);
+  it("should create the transaction for a random string of 675 bytes", function(done) {
+    var data = randomString(675);
     bitcoinTransactionBuilder.createSignedTransactionsWithData({
       data: data, 
-      id: id, 
       commonWallet: commonWallet,
       commonBlockchain: commonBlockchain
-    }, function(err, signedTransactions) {
-      expect(signedTransactions.length).toBe(12);
-      var propagateCounter = 0;
-      var txids = [];
-      var propagateResponse = function(err, res) {
-        //console.log(err, res);
-        console.log(propagateCounter + 1 + "/" + signedTransactions.length);
-        if (err) {
-          return done(err);
-        }
-        txids.push(res.txid);
-        propagateCounter++;
-        if (propagateCounter == signedTransactions.length) {
-          commonBlockchain.Transactions.Get(txids, function(err, transactions) {
-            //console.log("ttt", transactions);
-            bitcoinTransactionBuilder.getData({commonWallet: commonWallet, transactions:transactions, id:id}, function(error, decodedData) {
-              expect(data).toBe(decodedData);
-              done();
-            });
-          });
-        }
-        else {
-          commonBlockchain.Transactions.Propagate(signedTransactions[propagateCounter], propagateResponse);
-        }
-      }
-      commonBlockchain.Transactions.Propagate(signedTransactions[0], propagateResponse);
+    }, function(err, signedTransactions, txid) {
+      expect(signedTransactions.length).toBe(7);
+      var primaryTxHex = signedTransactions[0];
+      var primaryTx = txHexToJSON(primaryTxHex);
+      expect(primaryTx.txid).toBe(txid);
+      var primaryData = new Buffer(primaryTx.vout[0].scriptPubKey.hex, 'hex');
+      var length = dataPayload.parse(primaryData.slice(2, primaryData.length));
+      expect(length).toBe(7);
+      signedTransactions.forEach(function(signedTxHex) {
+        var signedTx = txHexToJSON(signedTxHex);
+        signedTx.vin.forEach(function(vin) {
+          expect(vin.scriptSig.hex).not.toBe('');
+        });
+      });
+      bitcoinTransactionBuilder.getData({transactions:signedTransactions}, function(error, decodedTransactions) {
+        var decodedData = decodedTransactions[0].data;
+        expect(data).toBe(decodedData);
+        done();
+      });
+    });
+  });
+
+  it("should create the transaction for full latin paragraph of 1265 bytes", function(done) {
+    var data = loremIpsum.slice(0, 1265);
+    bitcoinTransactionBuilder.createSignedTransactionsWithData({
+      data: data, 
+      commonWallet: commonWallet,
+      commonBlockchain: commonBlockchain
+    }, function(err, signedTransactions, txid) {
+      expect(signedTransactions.length).toBe(6);
+      signedTransactions.forEach(function(signedTxHex) {
+        var signedTx = txHexToJSON(signedTxHex);
+        signedTx.vin.forEach(function(vin) {
+          expect(vin.scriptSig.hex).not.toBe('');
+        });
+      });
+      bitcoinTransactionBuilder.getData({transactions:signedTransactions}, function(error, decodedTransactions) {
+        var decodedData = decodedTransactions[0].data;
+        expect(data).toBe(decodedData);
+        done();
+      });
     });  
   });
 
   it("should create the transaction with a custom primaryTxHex with 30 bytes", function(done) {
     var data = randomString(30);
-    var id = parseInt(Math.random()*16);
     var value = 12345;
     anotherCommonWallet.createTransaction({
       destinationAddress: commonWallet.address,
       value: value,
       skipSign: true
     }, function(err, primaryTxHex) {
+      var primaryTx = txHexToJSON(primaryTxHex);
+      expect(primaryTx.vout[0].value).toBe(value);
+      expect(primaryTx.vin[0].scriptSig.hex).toBe('');
       bitcoinTransactionBuilder.createSignedTransactionsWithData({
         primaryTxHex: primaryTxHex,
         data: data, 
-        id: id, 
         commonWallet: commonWallet,
         commonBlockchain: testnetCommonBlockchain
-      }, function(err, signedTransactions) {
+      }, function(err, signedTransactions, txid) {
         expect(signedTransactions.length).toBe(1);
-        var txHex = signedTransactions[0];
-        anotherCommonWallet.signRawTransaction({txHex: txHex, input: 0}, function(err, signedTxHex) {
+        var primaryTxHex = signedTransactions[0];
+        var primaryTx = txHexToJSON(primaryTxHex);
+        expect(primaryTx.txid).toBe(txid);
+        expect(primaryTx.vin[0].scriptSig.hex).toBe('');
+        expect(primaryTx.vout[0].value).toBe(value);
+        expect(primaryTx.vout[2].value).toBe(0);
+        var primaryData = new Buffer(primaryTx.vout[2].scriptPubKey.hex, 'hex');
+        var length = dataPayload.parse(primaryData.slice(2, primaryData.length));
+        expect(length).toBe(1);
+        anotherCommonWallet.signRawTransaction({txHex: primaryTxHex, input: 0}, function(err, signedTxHex) {
+          var signedTx = txHexToJSON(signedTxHex);
+          signedTx.vin.forEach(function(vin) {
+            expect(vin.scriptSig.hex).not.toBe('');
+          });
           testnetCommonBlockchain.Transactions.Propagate(signedTxHex, function(err, res) {
             console.log(res.status, "1/1");
             if (err) {
@@ -318,7 +313,6 @@ describe("bitcoin transaction builder", function() {
 
   it("should create the transaction with a custom primaryTxHex with 120 bytes", function(done) {
     var data = randomString(120);
-    var id = parseInt(Math.random()*16);
     var value = 12345;
     var signPrimaryTxHex = function(txHex, callback) {
       anotherCommonWallet.signRawTransaction({txHex: txHex, input: 0}, callback);
@@ -332,19 +326,63 @@ describe("bitcoin transaction builder", function() {
         primaryTxHex: primaryTxHex,
         signPrimaryTxHex: signPrimaryTxHex,
         data: data, 
-        id: id, 
         commonWallet: commonWallet,
         commonBlockchain: testnetCommonBlockchain
-      }, function(err, signedTransactions) {
-        expect(signedTransactions.length).toBe(4);
-        var txHex = signedTransactions[0];
-        var tx = txHexToJSON(txHex);
-        expect(tx.vout[0].value).toBe(12345);
-        expect(tx.vout[2].value).toBe(0);
+      }, function(err, signedTransactions, txid) {
+        expect(signedTransactions.length).toBe(2);
+        var primaryTxHex = signedTransactions[0];
+        var primaryTx = txHexToJSON(primaryTxHex);
+        expect(primaryTx.txid).toBe(txid);
+        expect(primaryTx.vout[0].value).toBe(value);
+        expect(primaryTx.vout[2].value).toBe(0);
+        signedTransactions.forEach(function(signedTxHex) {
+          var signedTx = txHexToJSON(signedTxHex);
+          signedTx.vin.forEach(function(vin) {
+            expect(vin.scriptSig.hex).not.toBe('');
+          });
+        });
+        var primaryData = new Buffer(primaryTx.vout[2].scriptPubKey.hex, 'hex');
+        var length = dataPayload.parse(primaryData.slice(2, primaryData.length));
+        expect(length).toBe(2);
         var txHex1 = signedTransactions[1];
         var tx1 = txHexToJSON(txHex1);
-        expect(tx1.vin[0].txid).toBe(tx.txid);
-        expect(tx1.vin[0].vout).toBe(3);
+        expect(primaryTx.vin[1].txid).toBe(tx1.txid);
+        done();
+      });
+    });
+  });
+
+  it("should create the transaction with a custom primaryTxHex with 320 bytes", function(done) {
+    var data = randomString(320);
+    var value = 12345;
+    var signPrimaryTxHex = function(txHex, callback) {
+      anotherCommonWallet.signRawTransaction({txHex: txHex, input: 0}, callback);
+    }
+    anotherCommonWallet.createTransaction({
+      destinationAddress: commonWallet.address,
+      value: value,
+      skipSign: true
+    }, function(err, primaryTxHex) {
+      bitcoinTransactionBuilder.createSignedTransactionsWithData({
+        primaryTxHex: primaryTxHex,
+        signPrimaryTxHex: signPrimaryTxHex,
+        data: data, 
+        commonWallet: commonWallet,
+        commonBlockchain: testnetCommonBlockchain
+      }, function(err, signedTransactions, txid) {
+        expect(signedTransactions.length).toBe(4);
+        var primaryTxHex = signedTransactions[0];
+        var primaryTx = txHexToJSON(primaryTxHex);
+        var primaryData = new Buffer(primaryTx.vout[2].scriptPubKey.hex, 'hex');
+        var length = dataPayload.parse(primaryData.slice(2, primaryData.length));
+        expect(length).toBe(4);
+        signedTransactions.forEach(function(signedTxHex) {
+          var signedTx = txHexToJSON(signedTxHex);
+          signedTx.vin.forEach(function(vin) {
+            expect(vin.scriptSig.hex).not.toBe('');
+          });
+        });
+        expect(primaryTx.txid).toBe(txid);
         done();
       });
     });

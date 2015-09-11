@@ -16,6 +16,7 @@ var commonBlockchain = require('blockcypher-unofficial')({
   network: "testnet"
 });
 
+var memCommonBlockchain = require('mem-common-blockchain')();
 
 var randomJsonObject = function(messageLength) {
   var r = {
@@ -50,11 +51,23 @@ var anotherCommonWallet = testCommonWallet({
   commonBlockchain: commonBlockchain
 });
 
+var JSONdata = JSON.stringify({ 
+  op: 'r',
+  btih: '335400c43179bb1ad0085289e4e60c0574e6252e',
+  sha1: 'dc724af18fbdd4e59189f5fe768a5f8311527050',
+  ipfs: 'QmcJf1w9bVpquGdzCp86pX4K21Zcn7bJBUtrBP1cr2NFuR',
+  name: 'test.txt',
+  size: 7,
+  type: 'text/plain',
+  title: 'A text file for testing',
+  keywords: 'test, text, txt' 
+});
+
 describe("blockcast", function() {
 
-  it("should post a message of a random string of 70 bytes", function(done) {
+  it("should post a message of a random string of 170 bytes", function(done) {
 
-    var data = randomString(70);
+    var data = randomString(170);
 
     blockcast.post({
       data: data,
@@ -64,6 +77,21 @@ describe("blockcast", function() {
       expect(blockcastTx.data).toBe(data);
       expect(blockcastTx.txid).toBeDefined();
       expect(blockcastTx.transactionTotal).toBe(2);
+      done();
+    });
+
+  });
+
+  it("should post a message of a random string of 276 bytes", function(done) {
+
+    blockcast.post({
+      data: JSONdata,
+      commonWallet: commonWallet,
+      commonBlockchain: commonBlockchain
+    }, function(error, blockcastTx) {
+      expect(blockcastTx.data).toBe(JSONdata);
+      expect(blockcastTx.txid).toBeDefined();
+      expect(blockcastTx.transactionTotal).toBe(3);
       done();
     });
 
@@ -92,13 +120,11 @@ describe("blockcast", function() {
         signPrimaryTxHex: signPrimaryTxHex,
         data: data,
         commonWallet: commonWallet,
-        commonBlockchain: commonBlockchain,
-        propagationStatus: console.log
+        commonBlockchain: commonBlockchain
       }, function(error, blockcastTx) {
-        console.log(error, blockcastTx);
         expect(blockcastTx.data).toBe(data);
         expect(blockcastTx.txid).toBeDefined();
-        expect(blockcastTx.transactionTotal).toBe(2);
+        expect(blockcastTx.transactionTotal).toBe(1);
         done();
       });
 
@@ -106,42 +132,64 @@ describe("blockcast", function() {
 
   });
 
-  it("should tip a post", function(done) {
-
-    var tipDestinationAddress = "mr5qCMve7UVgJ8RCsqzsgQz9ry7sonEoKc";
-    var tipTransactionHash = "ec42f55249fb664609ef4329dcce3cab6d6ae14f6860a602747a72f966de3e13";
-
-    blockcast.tip({
-      tipDestinationAddress: tipDestinationAddress,
-      tipTransactionHash: tipTransactionHash,
-      commonWallet: commonWallet,
-      commonBlockchain: commonBlockchain
-    }, function(error, tipTx) {
-      expect(tipTx.tipDestinationAddress).toBe(tipDestinationAddress);
-      expect(tipTx.tipTransactionHash).toBe(tipTransactionHash);
-      expect(tipTx.tipAmount).toBe(10000);
-      expect(tipTx.txid).toBeDefined();
-      done();
-    });
-
-  });
-
-
   it("should get the payloads length", function(done) {    
     var data = loremIpsum;
     blockcast.payloadsLength({data: data}, function(err, payloadsLength) {
-      expect(payloadsLength).toBe(12);
+      expect(payloadsLength).toBe(6);
       done();
     });
   });
 
   it("should warn when the payloads length is too big", function(done) {    
-    var data = randomString(1200);
+    var data = randomString(4200);
     blockcast.payloadsLength({data: data}, function(err, payloadsLength) {
-      expect(err).toBe('data payload > 607');
+      expect(err).toBe('data payload > 1277');
       expect(payloadsLength).toBe(false);
       done();
     });
+  });
+
+  it("should scan single txid 884db69602bffa8be074068ac8ee44fa37e31817b56a9092c996587d40e01742", function(done) {    
+    var txid = "884db69602bffa8be074068ac8ee44fa37e31817b56a9092c996587d40e01742";
+    blockcast.scanSingle({
+      txid: txid,
+      commonBlockchain: commonBlockchain
+    }, function(err, data) {
+      expect(data).toBe("ykt2AA31pAwBnB1IgNdoxsqcO41KxhsxVmqwhmWsRTTLQ9sp8QXNhWaZ58HhzMHB2O3p9CBkcvNtBngU1bgeMtsZywKHBCVRQgsVm6CtfFgrHNr8uaGX6kFLT8hvbMW6ID0XTUFFSTT83DIEeS4SifaFwTPex20B27QvwR0DDm");
+      done();
+    });
+  });
+
+  it("should scan single txid fe44cae45f69dd1d6115815356a73b9c5179feff1b276d99ac0e283156e1cd01", function(done) {    
+    var txid = "fe44cae45f69dd1d6115815356a73b9c5179feff1b276d99ac0e283156e1cd01";
+    blockcast.scanSingle({
+      txid: txid,
+      commonBlockchain: commonBlockchain
+    }, function(err, data) {
+      expect(data).toBe(JSONdata);
+      done();
+    });
+  });
+
+  it("should post a message of a random string of 720 bytes and then scan (memCommonBlockchain) ", function(done) {
+    var randomStringData = randomString(720);
+    blockcast.post({
+      data: randomStringData,
+      commonWallet: commonWallet,
+      commonBlockchain: memCommonBlockchain
+    }, function(error, blockcastTx) {
+      expect(blockcastTx.txid).toBeDefined();
+      expect(blockcastTx.transactionTotal).toBe(8);
+      blockcast.scanSingle({
+        txid: blockcastTx.txid,
+        commonBlockchain: memCommonBlockchain
+      }, function(err, data) {
+        expect(data).toBe(randomStringData);
+        done();
+    });
+      done();
+    });
+
   });
 
 });

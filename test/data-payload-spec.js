@@ -1,5 +1,4 @@
 var dataPayload = require("../src/data-payload");
-var nibble = require("../src/nibble");
 
 var randomString = function(length) {
   var characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXTZabcdefghiklmnopqrstuvwxyz";
@@ -10,6 +9,8 @@ var randomString = function(length) {
   }
   return output;
 };
+
+var OP_RETURN_SIZE = 80;
 
 var loremIpsum = "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?"
 
@@ -32,125 +33,112 @@ describe("data payload", function() {
 
   it("should create a data payload for some random data of 30 bytes", function(done) {
     var data = randomString(30);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
+    dataPayload.create({data: data}, function(err, payloads) {
       expect(payloads.length).toBe(1);
-      expect(payloads[0].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+      expect(payloads[0].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
   it("should create a data payload for a latin sentence sentence of 30 bytes", function(done) {
     var data = loremIpsum.slice(0,30);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
+    dataPayload.create({data: data}, function(err, payloads) {
       expect(payloads.length).toBe(1);
-      expect(payloads[0].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+      expect(payloads[0].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
-  it("should create a data payload for some random data of 70 bytes", function(done) {
-    var data = randomString(70);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(payloads.length).toBe(2);
-      expect(payloads[0].length).toBe(40);
-      expect(payloads[1].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+  it("should create a data payload for some random data of 270 bytes", function(done) {
+    var data = randomString(270);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(3);
+      expect(payloads[0].length).toBe(OP_RETURN_SIZE);
+      expect(payloads[2].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
   it("should create a data payload for a latin sentence sentence of 70 bytes", function(done) {
-    var data = loremIpsum.slice(0,70);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(payloads.length).toBe(2);
-      expect(payloads[0].length).toBe(40);
-      expect(payloads[1].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+    var data = loremIpsum.slice(0,270);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(3);
+      expect(payloads[0].length).toBe(OP_RETURN_SIZE);
+      expect(payloads[2].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
   it("should create a data payload for some random data of 110 bytes", function(done) {
     var data = randomString(110);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(payloads.length).toBe(3);
-      expect(payloads[0].length).toBe(40);
-      expect(payloads[1].length).toBe(40);
-      expect(payloads[2].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(2);
+      expect(payloads[0].length).toBe(OP_RETURN_SIZE);
+      expect(payloads[1].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
   it("should create a data payload for a latin sentence sentence of 110 bytes", function(done) {
     var data = loremIpsum.slice(0,110);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(payloads.length).toBe(3);
-      expect(payloads[0].length).toBe(40);
-      expect(payloads[1].length).toBe(40);
-      expect(payloads[2].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(2);
+      expect(payloads[0].length).toBe(OP_RETURN_SIZE);
+      expect(payloads[1].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
   it("should create a data payload for some random data of 700 bytes", function(done) {
-    var data = randomString(700);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(payloads.length).toBe(15);
+    var data = randomString(1600);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(16);
       for (var i = 0; i < payloads.length - 1; i++) {
         var payload = payloads[i];
-        expect(payload.length).toBe(40);
+        expect(payload.length).toBe(OP_RETURN_SIZE);
       };
-      expect(payloads[14].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+      expect(payloads[15].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
-  it("should create a data payload for some random data of 800 bytes", function(done) {
+  it("should create a data payload for some random data of OP_RETURN_SIZE0 bytes", function(done) {
     var data = randomString(750);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      console.log(payloads.length);
-      expect(payloads.length).toBe(16);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(8);
       for (var i = 0; i < payloads.length - 1; i++) {
         var payload = payloads[i];
-        expect(payload.length).toBe(40);
+        expect(payload.length).toBe(OP_RETURN_SIZE);
       };
-      expect(payloads[15].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+      expect(payloads[7].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
   it("should create a data payload for the full latin paragraph of 865 bytes", function(done) {
-    var data = loremIpsum.slice(0,865);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(payloads.length).toBe(12);
+    var data = loremIpsum.slice(0,965);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(6);
       for (var i = 0; i < payloads.length - 1; i++) {
         var payload = payloads[i];
-        expect(payload.length).toBe(40);
+        expect(payload.length).toBe(OP_RETURN_SIZE);
       };
-      expect(payloads[11].length).toBeLessThan(41);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+      expect(payloads[5].length).toBeLessThan(OP_RETURN_SIZE+1);
       done();
     });
   });
 
   it("should create a data payload for some JSON data", function(done) {
     var data = randomJsonObject(865);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(payloads.length).toBe(14);
-      expect(nibble.fromByte(payloads[0].slice(2,3))[1]).toBe(payloads.length-1);
+    dataPayload.create({data: data}, function(err, payloads) {
+      expect(payloads.length).toBe(7);
       done();
     });
   });
 
   it("should create a data payload for some 30 byte data and then decode it", function(done) {
     var data = loremIpsum.slice(0,30);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
+    dataPayload.create({data: data}, function(err, payloads) {
       dataPayload.decode(payloads, function(error, decodedData) {
         expect(data).toBe(decodedData);
         done();
@@ -158,9 +146,19 @@ describe("data payload", function() {
     });
   });
 
+  it("should create a data payload for some 30 byte data and then decode it", function(done) {
+    var data = loremIpsum.slice(0,78);
+    dataPayload.create({data: data}, function(err, payloads) {
+      dataPayload.decode(payloads, function(error, decodedData) {
+        expect(data).toBe(decodedData);
+        done();
+      });
+    });
+  }); 
+
   it("should create a data payload for some JSON data and then decode it", function(done) {
     var data = randomJsonObject(865);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
+    dataPayload.create({data: data}, function(err, payloads) {
       dataPayload.decode(payloads, function(erro, decodedData) {
         expect(data).toBe(decodedData);
         done();
@@ -168,25 +166,13 @@ describe("data payload", function() {
     });
   });
 
-  it("should not create a data payload for a larger amount of data", function(done) {
-    var data = randomString(1200);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      expect(err).toBeDefined();
-      expect(payloads).toBe(false);
-      done();
-    });
-  });
-
-  it("should sort a data payload", function(done) {
-    var data = randomString(700);
-    dataPayload.create({data: data, id: 3}, function(err, payloads) {
-      var shuffledPayloads = shuffle(payloads.slice(0));
-      var sortedPayloads = dataPayload.sort(shuffledPayloads);
-      for (var i = 0; i < payloads.length; i++) {
-        expect(payloads[i]).toBe(sortedPayloads[i]);
-      };
-      done();
-    });
-  });
+  // it("should not create a data payload for a larger amount of data", function(done) {
+  //   var data = randomString(1200);
+  //   dataPayload.create({data: data}, function(err, payloads) {
+  //     expect(err).toBeDefined();
+  //     expect(payloads).toBe(false);
+  //     done();
+  //   });
+  // });
 
 });

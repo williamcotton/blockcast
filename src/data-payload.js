@@ -2,7 +2,19 @@ var assert = require("assert");
 
 var Bitcoin = require("bitcoinjs-lib");
 var zlib = require("zlib");
-var header = require("./header");
+
+var OP_RETURN_SIZE = 80;
+
+var MAGIC_NUMBER = new Buffer("1f", "hex");
+var VERSION = new Buffer("00", "hex");
+
+var dth = function(d) {
+  var h = Number(d).toString(16);
+  while (h.length < 2) {
+    h = "0" + h;
+  }
+  return h;
+}
 
 var compress = function(decompressedBuffer, callback) {
   zlib.deflateRaw(decompressedBuffer, function(err, compressedBuffer) {
@@ -16,100 +28,50 @@ var decompress = function(compressedBuffer, callback) {
   });
 };
 
-var sort = function(unsortedPayloads) {
-  var firstPayload;
-  var theRest = [];
-  for (var i = 0; i < unsortedPayloads.length; i++) {
-    var pl = unsortedPayloads[i];
-    var startHeader = pl.slice(0,3);
-    try {
-      var info = header.decodeStart(startHeader);
-      if (info) {
-        firstPayload = pl;
-      }
-    }
-    catch (e) {
-      var midHeader = pl.slice(0,2);
-      var info = header.decodeMid(midHeader);
-      theRest[info.index-1] = pl;
-    }
-  };
-  return [firstPayload].concat(theRest);
+var parse = function(payload) {
+  var length = payload.slice(2,3).readUIntLE(0, 1);
+  var valid = payload.slice(0,1).equals(MAGIC_NUMBER) && payload.slice(1,2).equals(VERSION) && length;
+  return valid ? length : false;
 };
 
 var create = function(options, callback) {
   var data = options.data;
-  var id = options.id;
   var payloads = [];
   var buffer = new Buffer(data);
   compress(buffer, function(error, compressedBuffer) {
     var dataLength = compressedBuffer.length;
     var dataPayloads = [];
-    if (dataLength > 607) {
-      callback("data payload > 607", false);
+    if (dataLength > 1277) {
+      callback("data payload > 1277", false);
       return;
     }
-    var count = 0;
-    var index = 0;
-    var length = parseInt(((dataLength - 38) / 38) + 2);
+    var length = parseInt(((dataLength - OP_RETURN_SIZE) / OP_RETURN_SIZE) + 2);
+    var lengthByte = new Buffer(dth(length), "hex");
+    var count = OP_RETURN_SIZE - 3;
+    var dataPayload = compressedBuffer.slice(0, count);
+    payloads.push(Buffer.concat([MAGIC_NUMBER, VERSION, lengthByte, dataPayload]));
     while(count < dataLength) {
-      var dataPayload, head;
-      if (count == 0) {
-        head = header.encodeStart({
-          id: id,
-          length: length
-        });
-        dataPayload = compressedBuffer.slice(0, 37);
-        count += 37;
-      }
-      else {
-        head = header.encodeMid({
-          id: id,
-          index: index
-        });
-        dataPayload = compressedBuffer.slice(count, count+38);
-        count += 38;
-      }
-      index++;
-      var payload = Buffer.concat([head, dataPayload]);
-      payloads.push(payload);
+      dataPayload = compressedBuffer.slice(count, count+OP_RETURN_SIZE);
+      count += OP_RETURN_SIZE;
+      payloads.push(dataPayload);
     }
     callback(false, payloads);
   });
-};
-
-var getInfo = function(payload) {
-  var info;
-  try {
-    var startHeader = payload.slice(0,3);
-    info = header.decodeStart(startHeader);
-  }
-  catch (e) {
-    var midHeader = payload.slice(0,2);
-    info = header.decodeMid(midHeader); 
-  }
-  return info;
 };
 
 var decode = function(payloads, callback) {
   var firstPayload = payloads[0];
   var startHeader = firstPayload.slice(0,3);
   var compressedBuffer;
-  var info;
-  try {
-    info = header.decodeStart(startHeader);
-  }
-  catch (e) {
+  var length = startHeader.slice(2,3).readUIntLE(0, 1);
+  if (!length) {
     callback("no start header", false);
-    return;
   }
-  var id = info.id;
-  var length = info.length;
   assert.equal(payloads.length, length);
   var compressedBuffer = new Buffer("");
   for (var i = 0; i < length; i++) {
     var payload = payloads[i];
-    var dataPayload = i == 0 ? payload.slice(3, 40) : payload.slice(2, 40);
+    var dataPayload = i == 0 ? payload.slice(3, OP_RETURN_SIZE) : payload;
     compressedBuffer = Buffer.concat([compressedBuffer, dataPayload]);
   };
   decompress(compressedBuffer, function(err, data) {
@@ -125,6 +87,5 @@ var decode = function(payloads, callback) {
 module.exports = {
   create: create,
   decode: decode,
-  getInfo: getInfo,
-  sort: sort
+  parse: parse
 };
